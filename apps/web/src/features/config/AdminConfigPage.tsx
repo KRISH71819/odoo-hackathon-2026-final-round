@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   PageHeader,
   Panel,
@@ -13,6 +14,7 @@ import { useWarehouses } from '../fulfillment/useFulfillment.js';
 import { useAuth } from '../../lib/auth.js';
 
 export default function AdminConfigPage() {
+  const qc = useQueryClient();
   const { user: currentUser } = useAuth();
   const canGovernance = currentUser?.role === 'ADMIN' || currentUser?.role === 'SALES_MANAGER';
   const canOperationsConfig = currentUser?.role === 'ADMIN' || currentUser?.role === 'FINANCE_OPS';
@@ -99,6 +101,7 @@ export default function AdminConfigPage() {
     });
 
     await loadConfiguration();
+    await qc.invalidateQueries({ queryKey: ['dashboard'] });
     setMessage('Discount rule saved');
   };
 

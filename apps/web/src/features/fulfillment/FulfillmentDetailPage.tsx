@@ -57,6 +57,14 @@ export default function FulfillmentDetailPage() {
   const allocated = plan.lines?.filter((l: any) => !l.isBackorder) ?? [];
   const backordered = plan.lines?.filter((l: any) => l.isBackorder) ?? [];
 
+  // Compute fulfillment logistics metrics
+  const uniqueWarehouseIds = new Set(allocated.map((l: any) => l.warehouseId).filter(Boolean));
+  const shipmentCount = uniqueWarehouseIds.size;
+  const estimatedShippingCost = allocated.reduce((sum: number, l: any) => {
+    const weight = Number(l.warehouse?.shippingCostWeight ?? 1);
+    return sum + (Number(l.allocatedQty) || 0) * weight;
+  }, 0);
+
   return (
     <div>
       <PageHeader
@@ -74,15 +82,39 @@ export default function FulfillmentDetailPage() {
 
       {error && <NoticeStrip variant="danger" className="mb-4">{error}</NoticeStrip>}
 
-      {/* Plan Status */}
-      <div className="flex items-center gap-3 mb-4">
-        <StatusBadge status={plan.status} />
-        {hasBackorderLines && (
-          <NoticeStrip variant="warning" className="text-xs">
-            This plan has backorder lines. Stock is insufficient for full fulfillment.
-          </NoticeStrip>
-        )}
+      {/* Plan Logistics KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-df-surface border border-df-border rounded-lg p-3">
+          <div className="text-[11px] uppercase tracking-wider text-df-text-muted font-medium">Plan Status</div>
+          <div className="mt-1 flex items-center">
+            <StatusBadge status={plan.status} />
+          </div>
+        </div>
+        <div className="bg-df-surface border border-df-border rounded-lg p-3">
+          <div className="text-[11px] uppercase tracking-wider text-df-text-muted font-medium">Shipment Origins</div>
+          <div className="mt-1 text-lg font-bold text-df-text">
+            {shipmentCount} <span className="text-xs font-normal text-df-text-muted">{shipmentCount === 1 ? 'warehouse' : 'warehouses (split)'}</span>
+          </div>
+        </div>
+        <div className="bg-df-surface border border-df-border rounded-lg p-3">
+          <div className="text-[11px] uppercase tracking-wider text-df-text-muted font-medium">Allocated Units</div>
+          <div className="mt-1 text-lg font-bold text-df-text">
+            {allocated.reduce((sum: number, l: any) => sum + (Number(l.allocatedQty) || 0), 0)}
+          </div>
+        </div>
+        <div className="bg-df-surface border border-df-border rounded-lg p-3">
+          <div className="text-[11px] uppercase tracking-wider text-df-text-muted font-medium">Est. Shipping Cost</div>
+          <div className="mt-1 text-lg font-bold text-df-text">
+            {formatCurrency(estimatedShippingCost)}
+          </div>
+        </div>
       </div>
+
+      {hasBackorderLines && (
+        <NoticeStrip variant="warning" className="text-xs mb-4">
+          This plan has backorder lines ({backordered.reduce((s: number, l: any) => s + (Number(l.allocatedQty) || 0), 0)} units). Stock is insufficient for immediate full shipment.
+        </NoticeStrip>
+      )}
 
       {/* Allocated Lines */}
       <Panel title="Allocated Lines" className="mb-4">

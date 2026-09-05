@@ -87,6 +87,7 @@ export async function getQuotations(filter: QuotationFilter, page: number, limit
   if (filter.search) {
     where.OR = [
       { title: { contains: filter.search } },
+      { number: { contains: filter.search } },
     ];
   }
 

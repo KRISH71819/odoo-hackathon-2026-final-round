@@ -305,19 +305,87 @@ export async function getDealHealthAlerts() {
 }
 
 export async function nudgeAlert(quotationId: string, userId: string) {
-  const quote = await prisma.quotation.findUnique({ where: { id: quotationId } });
+  const quote = await prisma.quotation.findUnique({
+    where: { id: quotationId },
+    include: {
+      customer: { select: { id: true, name: true, email: true } },
+      salesRep: { select: { id: true, name: true, email: true } },
+    },
+  });
   if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
+
+  const nudger = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, role: true },
+  });
+
+  // Check 15-minute throttle to prevent duplicate/spam nudges
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+  const existingNudge = await prisma.auditLog.findFirst({
+    where: {
+      quotationId,
+      action: AuditAction.DEAL_HEALTH_NUDGE,
+      createdAt: { gte: fifteenMinutesAgo },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (existingNudge) {
+    let prevDetails: any = {};
+    try { prevDetails = JSON.parse(existingNudge.details || '{}'); } catch {}
+    return {
+      success: false,
+      throttled: true,
+      quotationId,
+      recipient: prevDetails.recipientRole || 'Recipient',
+      message: `A nudge was already sent ${Math.round((Date.now() - new Date(existingNudge.createdAt).getTime()) / 60000)}m ago. Please allow time for a response.`,
+    };
+  }
+
+  // Determine appropriate recipient & actionable reason based on quote status & health
+  let recipientRole = 'Sales Rep';
+  let recipientId = quote.salesRepId;
+  let reason = 'Deal has been inactive. Please follow up with the customer.';
+
+  if (quote.status === QuotationStatus.PENDING_MANAGER) {
+    recipientRole = 'Sales Manager';
+    reason = 'Quotation is awaiting managerial discount/terms approval.';
+  } else if (quote.status === QuotationStatus.PENDING_FINANCE) {
+    recipientRole = 'Finance Operations';
+    reason = 'Quotation is awaiting second-level finance approval.';
+  } else if (quote.status === QuotationStatus.SENT_TO_CUSTOMER || quote.status === QuotationStatus.UNDER_NEGOTIATION) {
+    recipientRole = 'Customer';
+    recipientId = quote.customerId;
+    reason = 'Quotation is awaiting customer signature or feedback.';
+  } else if (quote.status === QuotationStatus.APPROVED || quote.status === QuotationStatus.FULFILLMENT_READY) {
+    recipientRole = 'Operations';
+    reason = 'Quotation is approved and awaiting fulfillment plan execution.';
+  }
 
   await prisma.auditLog.create({
     data: {
       quotationId,
       userId,
       action: AuditAction.DEAL_HEALTH_NUDGE,
-      details: JSON.stringify({ nudgedBy: userId, at: new Date().toISOString() }),
+      details: JSON.stringify({
+        nudgedBy: nudger?.name || userId,
+        nudgerRole: nudger?.role || 'INTERNAL',
+        recipientRole,
+        recipientId,
+        reason,
+        at: new Date().toISOString(),
+      }),
     },
   });
 
-  return { success: true, quotationId };
+  return {
+    success: true,
+    throttled: false,
+    quotationId,
+    recipient: recipientRole,
+    reason,
+    message: `Nudge dispatched to ${recipientRole}: ${reason}`,
+  };
 }
 
 // ── Reports ─────────────────────────────────────────────────
@@ -334,9 +402,7 @@ export async function getReportData(filters: ReportFilter) {
   const quoteWhere: Record<string, unknown> = { ...dateFilter };
   if (filters.salesRepId) quoteWhere.salesRepId = filters.salesRepId;
   if (filters.status) quoteWhere.status = filters.status;
-  if (filters.category || filters.productId) quoteWhere.lines = { some: { ...(filters.category && { productCategory: filters.category }), ...(filters.productId && { productId: filters.productId }) } };
 
-  // Totals
   const quotations = await prisma.quotation.findMany({
     where: quoteWhere,
     select: {
@@ -414,7 +480,7 @@ export async function getReportData(filters: ReportFilter) {
 
 export async function getDashboardKPIs(salesRepId?: string) {
   const quoteScope = salesRepId ? { salesRepId } : {};
-  const [pendingApprovals, openQuotes, atRiskDeals, recentActivity] = await Promise.all([
+  const [pendingApprovals, openQuotes, atRiskDeals, recentActivity, tierRules, categoryRules] = await Promise.all([
     prisma.approvalRequest.count({ where: { status: 'PENDING', ...(salesRepId && { quotation: { salesRepId } }) } }),
     prisma.quotation.count({
       where: {
@@ -436,7 +502,18 @@ export async function getDashboardKPIs(salesRepId?: string) {
         quotation: { select: { id: true, number: true } },
       },
     }),
+    prisma.discountRule.findMany({ orderBy: { customerTier: 'asc' } }),
+    prisma.categoryDiscountRule.findMany({ orderBy: { category: 'asc' } }),
   ]);
 
-  return { pendingApprovals, openQuotes, atRiskDeals, recentActivity };
+  return {
+    pendingApprovals,
+    openQuotes,
+    atRiskDeals,
+    recentActivity,
+    discountRules: {
+      tierRules,
+      categoryRules,
+    },
+  };
 }

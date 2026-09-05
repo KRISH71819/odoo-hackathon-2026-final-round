@@ -218,26 +218,44 @@ export function DashboardPage() {
             {/* Right sidebar */}
             <div className="space-y-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-base">Discount Governance</CardTitle>
+                  <Link to="/configuration" className="text-xs text-primary hover:underline font-medium">
+                    Configure →
+                  </Link>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {[
-                    { tier: 'BRONZE', label: 'Standard', max: '10.0%' },
-                    { tier: 'SILVER', label: 'Silver', max: '15.0%' },
-                    { tier: 'GOLD', label: 'Gold VIP', max: '25.0%' },
-                  ].map((rule) => (
-                    <div key={rule.tier} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={rule.tier} />
-                        <span>{rule.label}</span>
+                  {((kpi?.discountRules?.tierRules?.length ?? 0) > 0
+                    ? kpi.discountRules.tierRules
+                    : [
+                        { customerTier: 'BRONZE', maxDiscountBps: 1000 },
+                        { customerTier: 'SILVER', maxDiscountBps: 1500 },
+                        { customerTier: 'GOLD', maxDiscountBps: 2500 },
+                      ]
+                  ).map((rule: any) => {
+                    const percent = rule.maxDiscountBps ? `${(rule.maxDiscountBps / 100).toFixed(1)}%` : rule.maxDiscountPercent ? `${rule.maxDiscountPercent.toFixed(1)}%` : '0.0%';
+                    return (
+                      <div key={rule.id || rule.customerTier} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={rule.customerTier} />
+                          <span className="capitalize">{rule.customerTier.toLowerCase()} Tier</span>
+                        </div>
+                        <span className="font-mono text-xs font-bold text-foreground">{percent}</span>
                       </div>
-                      <span className="font-mono text-xs font-bold text-muted-foreground">{rule.max}</span>
+                    );
+                  })}
+                  {((kpi?.discountRules?.categoryRules?.length ?? 0) > 0) && (
+                    <div className="pt-2 border-t border-border/50 text-xs text-muted-foreground space-y-1">
+                      <span className="font-semibold block text-foreground/80">Category Ceilings:</span>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {kpi.discountRules.categoryRules.map((c: any) => (
+                          <span key={c.id}>
+                            {c.category}: <span className="font-mono font-bold text-foreground">{(c.maxDiscountBps / 100).toFixed(1)}%</span>
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                  <p className="text-xs text-muted-foreground pt-1">
-                    Category limits: Hardware (15%), Services (20%), Subscription (25%).
-                  </p>
+                  )}
                 </CardContent>
               </Card>
 

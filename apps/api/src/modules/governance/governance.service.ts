@@ -5,6 +5,7 @@
 import prisma from '../../shared/prisma.js';
 import { AppError } from '../../shared/errors.js';
 import { ApprovalStatus, ApprovalActionType, QuotationStatus, AuditAction } from '@dealflow360/contracts';
+import * as fulfillmentService from '../fulfillment/fulfillment.service.js';
 
 // ── Queries ──────────────────────────────────────────────────
 
@@ -115,7 +116,9 @@ export async function approveQuote(approvalRequestId: string, userId: string, us
       (r) => r.id !== approvalRequestId && r.status === ApprovalStatus.PENDING
     );
 
+    let isFullyApproved = false;
     if (remainingPending.length === 0) {
+      isFullyApproved = true;
       // All approved — move quotation to APPROVED
       await tx.quotation.update({
         where: { id: approval.quotationId },
@@ -148,6 +151,25 @@ export async function approveQuote(approvalRequestId: string, userId: string, us
       },
     });
   });
+
+  // Automatically suggest fulfillment plan once quote is fully approved
+  const currentApproval = await prisma.approvalRequest.findUnique({
+    where: { id: approvalRequestId },
+  });
+  if (currentApproval) {
+    const quote = await prisma.quotation.findUnique({
+      where: { id: currentApproval.quotationId },
+      include: { approvalRequests: true },
+    });
+    const stillPending = quote?.approvalRequests.filter((r) => r.status === ApprovalStatus.PENDING);
+    if (quote?.status === QuotationStatus.APPROVED && (!stillPending || stillPending.length === 0)) {
+      try {
+        await fulfillmentService.suggestFulfillmentPlan(quote.id, userId);
+      } catch (err) {
+        console.warn('Auto fulfillment plan generation upon approval failed:', err);
+      }
+    }
+  }
 
   return getApprovalDetail(approvalRequestId);
 }

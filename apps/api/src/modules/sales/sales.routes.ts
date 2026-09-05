@@ -20,6 +20,37 @@ import { AppError } from '../../shared/errors.js';
 export const salesRoutes = Router();
 salesRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
 
+function sanitizeQuotationForCustomer(quotation: any) {
+  if (!quotation) return quotation;
+  const {
+    marginPercent,
+    riskScore,
+    riskLevel,
+    approvalRequests,
+    auditLogs,
+    ...rest
+  } = quotation;
+
+  return {
+    ...rest,
+    marginPercent: undefined,
+    riskScore: undefined,
+    riskLevel: undefined,
+    approvalRequests: undefined,
+    auditLogs: undefined,
+    lines: Array.isArray(quotation.lines)
+      ? quotation.lines.map((line: any) => {
+          const { costPrice, marginPercent, ...lineRest } = line;
+          return {
+            ...lineRest,
+            costPrice: undefined,
+            marginPercent: undefined,
+          };
+        })
+      : quotation.lines,
+  };
+}
+
 // ── Quotation List ───────────────────────────────────────────
 
 salesRoutes.get('/quotations', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
@@ -27,10 +58,15 @@ salesRoutes.get('/quotations', authMiddleware, async (req: Request, res: Respons
     const filter = QuotationFilterSchema.parse(req.query);
     const pagination = PaginationQuerySchema.parse(req.query);
     const page = pagination.page ?? 1;
-    const limit = (pagination as any).limit ?? pagination.pageSize ?? 20;
+    const rawLimit = req.query.limit ? Number(req.query.limit) : undefined;
+    const limit = (rawLimit && !isNaN(rawLimit) && rawLimit > 0) ? rawLimit : (pagination.pageSize ?? 20);
 
-    if (req.user!.role === UserRole.CUSTOMER) {
+    const isCustomer = req.user!.role === UserRole.CUSTOMER;
+    if (isCustomer) {
       const result = await salesService.getCustomerQuotations(req.user!.userId, page, limit);
+      if (Array.isArray(result.data)) {
+        result.data = result.data.map(sanitizeQuotationForCustomer);
+      }
       return res.json(result);
     }
     if (req.user!.role === UserRole.SALES_REP) {
@@ -43,10 +79,16 @@ salesRoutes.get('/quotations', authMiddleware, async (req: Request, res: Respons
 
 // ── Quotation Detail ─────────────────────────────────────────
 
-salesRoutes.get('/quotations/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+salesRoutes.get('/quotations/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER), async (req: Request, res: Response, next: NextFunction) => {
   try {
     await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
     const quotation = await salesService.getQuotationById(req.params.id as string);
+    if (req.user!.role === UserRole.CUSTOMER) {
+      if (quotation.customerId !== req.user!.userId) {
+        throw new AppError(403, 'FORBIDDEN', 'Access denied: you may only view your own quotations');
+      }
+      return res.json({ data: sanitizeQuotationForCustomer(quotation) });
+    }
     res.json({ data: quotation });
   } catch (err) { next(err); }
 });
@@ -172,13 +214,18 @@ salesRoutes.get(
 
 // ── Upsell Suggestions ──────────────────────────────────────
 
-salesRoutes.get('/quotations/:id/upsell-suggestions', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
-    const suggestions = await salesService.getUpsellSuggestions(req.params.id as string);
-    res.json({ data: suggestions });
-  } catch (err) { next(err); }
-});
+salesRoutes.get(
+  '/quotations/:id/upsell-suggestions',
+  authMiddleware,
+  requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
+      const suggestions = await salesService.getUpsellSuggestions(req.params.id as string);
+      res.json({ data: suggestions });
+    } catch (err) { next(err); }
+  },
+);
 
 // ── Staff Negotiation Comment ────────────────────────────────
 salesRoutes.post(
