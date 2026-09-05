@@ -312,3 +312,37 @@ export async function generatePortalToken(quotationId: string, userId: string) {
 
   return { token: tokenRecord.token, expiresAt: tokenRecord.expiresAt };
 }
+
+// ── JWT-Customer Helpers (prototyping / demo) ─────────────────
+// These allow customers logged in via JWT (not portal token) to browse
+// and interact with their quotations directly.
+
+/** Map userId → the customer's internal DB id (same as userId for customer accounts) */
+export async function getCustomerIdFromUserId(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } });
+  if (!user || user.role !== 'CUSTOMER') {
+    throw new AppError(403, 'FORBIDDEN', 'Not a customer account');
+  }
+  // For customer users, their userId is also their customerId in the quotation's customerId field
+  return userId;
+}
+
+/** List all quotations belonging to this customer */
+export async function getCustomerQuotations(userId: string) {
+  const customerId = await getCustomerIdFromUserId(userId);
+  return prisma.quotation.findMany({
+    where: { customerId },
+    orderBy: { updatedAt: 'desc' },
+    include: {
+      customer: { select: { id: true, name: true } },
+      lines: { select: { id: true, productName: true, quantity: true, total: true } },
+    },
+  });
+}
+
+/** Get a single quotation, scoped to this customer */
+export async function getCustomerQuotationById(quotationId: string, userId: string) {
+  const customerId = await getCustomerIdFromUserId(userId);
+  return getPortalQuotation(quotationId, customerId);
+}
+

@@ -27,32 +27,12 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user?.role !== 'CUSTOMER') {
-      navigate('/', { replace: true });
+    if (isAuthenticated) {
+      navigate(user?.role === 'CUSTOMER' ? '/customer' : '/', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 
   if (isLoading) return null;
-
-  if (isAuthenticated && user?.role === 'CUSTOMER') {
-    return (
-      <div className="login-bg min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            <CardTitle>Customer Account</CardTitle>
-            <CardDescription className="mt-2">
-              Customer accounts use the quotation portal link sent by the sales team. Internal workspace access is blocked.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" onClick={logout}>
-              Sign Out & Back to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

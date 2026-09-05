@@ -88,7 +88,65 @@ customerRouter.post('/quotation/confirm', async (req: Request, res: Response, ne
   } catch (err) { next(err); }
 });
 
-// Mount customer router under /customer
+// Mount token-based customer router
 portalRoutes.use('/customer', customerRouter);
+
+// ── Customer JWT Routes (authenticated customer viewing own quotes) ───────────
+// Accessed when customer logs in directly (prototyping/demo). Uses normal JWT auth.
+const jwtCustomerRouter = Router();
+jwtCustomerRouter.use(authMiddleware);
+
+// List their quotations
+jwtCustomerRouter.get('/quotations', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.user!;
+    const quotes = await portalService.getCustomerQuotations(userId);
+    res.json({ data: quotes });
+  } catch (err) { next(err); }
+});
+
+// Get single quotation detail (scoped to this customer)
+jwtCustomerRouter.get('/quotations/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.user!;
+    const quote = await portalService.getCustomerQuotationById(req.params.id as string, userId);
+    res.json({ data: quote });
+  } catch (err) { next(err); }
+});
+
+// Add comment (as customer, no portal token required)
+jwtCustomerRouter.post('/quotations/:id/comments', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.user!;
+    const validated = AddNegotiationCommentSchema.parse(req.body);
+    const customerId = await portalService.getCustomerIdFromUserId(userId);
+    const comment = await portalService.addNegotiationComment(req.params.id as string, customerId, validated);
+    res.status(201).json({ data: comment });
+  } catch (err) { next(err); }
+});
+
+// Submit counter-offer
+jwtCustomerRouter.post('/quotations/:id/counter-offer', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.user!;
+    const validated = SubmitCounterOfferSchema.parse(req.body);
+    const customerId = await portalService.getCustomerIdFromUserId(userId);
+    const result = await portalService.submitCounterOffer(req.params.id as string, customerId, userId, validated);
+    res.json({ data: result });
+  } catch (err) { next(err); }
+});
+
+// Confirm quotation
+jwtCustomerRouter.post('/quotations/:id/confirm', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.user!;
+    const customerId = await portalService.getCustomerIdFromUserId(userId);
+    const result = await portalService.confirmQuotation(req.params.id as string, customerId);
+    res.json({ data: result });
+  } catch (err) { next(err); }
+});
+
+portalRoutes.use('/customer-jwt', jwtCustomerRouter);
+
 
 export default portalRoutes;
