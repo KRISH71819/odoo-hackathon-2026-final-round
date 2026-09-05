@@ -59,7 +59,7 @@ export function AppLayout() {
   }
 
   if (!isAuthenticated || user?.role === 'CUSTOMER') {
-    return <Navigate to={user?.role === 'CUSTOMER' ? '/customer' : '/login'} replace />;
+    return <Navigate to="/login" replace />;
   }
 
   const currentSegment = location.pathname.split('/')[1] || '';
