@@ -8,6 +8,23 @@ import { useDealHealth, useNudge } from './useDealHealth.js';
 export default function DealHealthPage() {
   const { data, isLoading } = useDealHealth();
   const nudge = useNudge();
+  const [notification, setNotification] = React.useState<{ type: 'warning' | 'info' | 'danger'; message: string } | null>(null);
+
+  const handleNudge = async (quotationId: string) => {
+    try {
+      const res = await nudge.mutateAsync(quotationId);
+      if (res?.data?.throttled) {
+        setNotification({ type: 'warning', message: res.data.message });
+      } else {
+        setNotification({
+          type: 'info',
+          message: res?.data?.message || `✓ Nudge dispatched to ${res?.data?.recipient || 'assignee'}.`,
+        });
+      }
+    } catch (err: any) {
+      setNotification({ type: 'danger', message: err.message || 'Failed to dispatch nudge' });
+    }
+  };
 
   if (isLoading) return <Spinner />;
   const health = data?.data;
@@ -18,6 +35,12 @@ export default function DealHealthPage() {
   return (
     <div>
       <PageHeader title="Deal Health" subtitle="Monitor stalled deals, discount anomalies, and delivery slippage" />
+
+      {notification && (
+        <NoticeStrip variant={notification.type} className="mb-4">
+          {notification.message}
+        </NoticeStrip>
+      )}
 
       {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -76,7 +99,7 @@ export default function DealHealthPage() {
                     <td className="py-2 pr-3">{formatDate(q.updatedAt)}</td>
                     <td className="py-2">
                       <PrimaryButton
-                        onClick={() => nudge.mutate(q.id)}
+                        onClick={() => handleNudge(q.id)}
                         disabled={nudge.isPending}
                       >
                         Nudge
@@ -115,7 +138,7 @@ export default function DealHealthPage() {
                 </div>
                 <PrimaryButton
                   className="mt-2"
-                  onClick={() => nudge.mutate(a.quotation.id)}
+                  onClick={() => handleNudge(a.quotation.id)}
                   disabled={nudge.isPending}
                 >
                   Nudge
@@ -132,7 +155,7 @@ export default function DealHealthPage() {
             <div key={a.id} className="flex items-center justify-between border-b border-df-border/30 py-2 text-xs">
               <Link to={`/quotations/${a.quotationId}`} className="text-df-nav hover:underline">{a.quotation?.number}</Link>
               <span className="text-df-text-muted">{a.role.replace(/_/g, ' ')} pending since {formatDate(a.createdAt)}</span>
-              <PrimaryButton onClick={() => nudge.mutate(a.quotationId)} disabled={nudge.isPending}>Nudge</PrimaryButton>
+              <PrimaryButton onClick={() => handleNudge(a.quotationId)} disabled={nudge.isPending}>Nudge</PrimaryButton>
             </div>
           ))}</div>
         )}
@@ -165,7 +188,7 @@ export default function DealHealthPage() {
                     <td className="py-2 pr-3">{formatDate(fp.createdAt)}</td>
                     <td className="py-2">
                       <PrimaryButton
-                        onClick={() => nudge.mutate(fp.quotation?.id)}
+                        onClick={() => handleNudge(fp.quotation?.id)}
                         disabled={nudge.isPending}
                       >
                         Nudge

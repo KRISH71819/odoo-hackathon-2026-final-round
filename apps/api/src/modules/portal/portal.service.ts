@@ -14,6 +14,7 @@ import { resolveApprovalChain } from '../governance/resolveApprovalChain.js';
 import { generateBillingSchedule } from '../billing/billing.service.js';
 import { recalculateTotals, calculateRiskForQuote, getQuotationById } from '../sales/sales.service.js';
 import { createInvoice } from '../insights/insights.service.js';
+import { suggestFulfillmentPlan } from '../fulfillment/fulfillment.service.js';
 
 // ── Read ─────────────────────────────────────────────────────
 
@@ -285,6 +286,13 @@ export async function confirmQuotation(quotationId: string, customerId: string) 
   // Generate recurring schedules and the one-time invoice through existing services.
   await generateBillingSchedule(quotationId, customerId);
   await createInvoice(quotationId, customerId);
+
+  // Automatically generate fulfillment plan upon confirmation
+  try {
+    await suggestFulfillmentPlan(quotationId, customerId);
+  } catch (err) {
+    console.warn('Auto fulfillment plan generation after confirmation failed:', err);
+  }
 
   return getPortalQuotation(quotationId, customerId);
 }

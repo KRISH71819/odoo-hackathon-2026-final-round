@@ -37,19 +37,32 @@ const PIPELINE_STAGES: PipelineStage[] = [
 
 export default function QuotationListPage() {
   const { user } = useAuth();
+  const isCustomer = user?.role === UserRole.CUSTOMER;
   const isSalesRep = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'pipeline'>('list');
   const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('New Enterprise Quotation');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
 
   const params: Record<string, string> = {};
-  if (statusFilter) params.status = statusFilter;
+  if (viewMode === 'pipeline') {
+    params.limit = '100';
+    params.page = '1';
+  } else {
+    params.page = String(page);
+    params.limit = String(pageSize);
+    if (statusFilter) params.status = statusFilter;
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+  }
 
-  const { data, isLoading } = useQuotations(Object.keys(params).length > 0 ? params : undefined);
+  const { data, isLoading } = useQuotations(params);
   const quotations = data?.data || [];
+  const pagination = data?.pagination || { page: 1, limit: pageSize, total: quotations.length, totalPages: 1 };
 
   // Load customers for new quote dialog
   const { data: customersData } = useQuery({
@@ -111,22 +124,33 @@ export default function QuotationListPage() {
         }
       />
 
-      {/* Status filter tabs for List view */}
+      {/* Filter and Finder bar for List view */}
       {viewMode === 'list' && (
-        <div className="flex gap-1 mb-4 overflow-x-auto">
-          {['', ...Object.values(QuotationStatus)].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap transition-colors ${
-                statusFilter === s
-                  ? 'bg-accent text-white'
-                  : 'bg-charcoal-800 text-charcoal-400 hover:text-charcoal-200'
-              }`}
-            >
-              {s === '' ? 'All' : s.replace(/_/g, ' ')}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+          <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
+            {['', ...Object.values(QuotationStatus)].map((s) => (
+              <button
+                key={s}
+                onClick={() => { setStatusFilter(s); setPage(1); }}
+                className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap transition-colors ${
+                  statusFilter === s
+                    ? 'bg-accent text-white'
+                    : 'bg-charcoal-800 text-charcoal-400 hover:text-charcoal-200'
+                }`}
+              >
+                {s === '' ? 'All' : s.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+          <div className="w-full sm:w-72">
+            <Input
+              type="search"
+              placeholder="Search quotes by #, title..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              className="text-xs"
+            />
+          </div>
         </div>
       )}
 
@@ -144,7 +168,7 @@ export default function QuotationListPage() {
                   <th>Sales Rep</th>
                   <th>Status</th>
                   <th className="text-right">Amount</th>
-                  <th className="text-right">Margin</th>
+                  {!isCustomer && <th className="text-right">Margin</th>}
                   <th>Lines</th>
                   <th>Updated</th>
                 </tr>
@@ -184,22 +208,52 @@ export default function QuotationListPage() {
                     <td className="text-charcoal-400">{q.salesRep?.name || '—'}</td>
                     <td><StatusBadge status={q.status} /></td>
                     <td className="text-right font-mono font-medium">{formatCents(q.total ?? q.grandTotal)}</td>
-                    <td className={`text-right font-mono text-xs ${(q.marginPercent ?? 0) >= 2000 ? 'text-success' : (q.marginPercent ?? 0) >= 1000 ? 'text-warning' : 'text-danger'}`}>
-                      {formatBps(q.marginPercent)}
-                    </td>
+                    {!isCustomer && (
+                      <td className={`text-right font-mono text-xs ${(q.marginPercent ?? 0) >= 2000 ? 'text-success' : (q.marginPercent ?? 0) >= 1000 ? 'text-warning' : 'text-danger'}`}>
+                        {formatBps(q.marginPercent)}
+                      </td>
+                    )}
                     <td className="text-charcoal-400">{q._count?.lines || q.lines?.length || 0}</td>
                     <td className="text-charcoal-400 text-xs">{new Date(q.updatedAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
                 {quotations.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="text-center text-charcoal-400 py-8">
+                    <td colSpan={isCustomer ? 8 : 9} className="text-center text-charcoal-400 py-8">
                       No quotations found
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-charcoal-800 text-xs text-charcoal-400">
+            <div>
+              Showing <span className="font-semibold text-charcoal-200">{quotations.length > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0}</span> to{' '}
+              <span className="font-semibold text-charcoal-200">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of{' '}
+              <span className="font-semibold text-charcoal-200">{pagination.total}</span> quotations
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={pagination.page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 rounded bg-charcoal-800 border border-charcoal-700 text-charcoal-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-charcoal-700 transition-colors"
+              >
+                Previous
+              </button>
+              <span className="text-charcoal-400 font-mono">
+                Page {pagination.page} of {Math.max(1, pagination.totalPages)}
+              </span>
+              <button
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1 rounded bg-charcoal-800 border border-charcoal-700 text-charcoal-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-charcoal-700 transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </Panel>
       ) : (

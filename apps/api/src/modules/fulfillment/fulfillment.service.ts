@@ -80,8 +80,26 @@ export async function suggestFulfillmentPlan(quotationId: string, userId: string
     include: { lines: true },
   });
   if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
-  if (quote.status !== QuotationStatus.APPROVED && quote.status !== QuotationStatus.FULFILLMENT_READY) {
-    throw new AppError(409, 'INVALID_STATE', `Quotation must be APPROVED to create a fulfillment plan (current: ${quote.status})`);
+
+  const existingAllocatedPlan = await prisma.fulfillmentPlan.findFirst({
+    where: {
+      quotationId,
+      status: { in: [FulfillmentStatus.ALLOCATED, FulfillmentStatus.PARTIALLY_ALLOCATED] },
+    },
+  });
+  if (existingAllocatedPlan) {
+    return getFulfillmentPlanById(existingAllocatedPlan.id);
+  }
+
+  const allowedFulfillmentStatuses: string[] = [
+    QuotationStatus.APPROVED,
+    QuotationStatus.FULFILLMENT_READY,
+    QuotationStatus.CONFIRMED,
+    QuotationStatus.BILLED,
+    QuotationStatus.PAID,
+  ];
+  if (!allowedFulfillmentStatuses.includes(quote.status)) {
+    throw new AppError(409, 'INVALID_STATE', `Quotation must be approved or confirmed to create a fulfillment plan (current: ${quote.status})`);
   }
 
   const warehouses = await prisma.warehouse.findMany({
