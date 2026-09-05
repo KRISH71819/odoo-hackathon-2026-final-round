@@ -1,24 +1,30 @@
 // ── DealFlow360 – Application Router ──
+// All 4 Phases Integrated: Auth, Sales & Governance, Operations & Billing, Insights & Reports
 
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './Layout.js';
 import { LoginPage } from '../features/auth/LoginPage.js';
 import { DashboardPage } from '../features/dashboard/DashboardPage.js';
+// Phase 2 – Catalog, Customers, Quotations, Approvals
 import CustomersPage from '../features/customer/CustomersPage.js';
 import ProductListPage from '../features/catalog/ProductListPage.js';
 import QuotationListPage from '../features/quotation/QuotationListPage.js';
 import QuotationBuilderPage from '../features/quotation/QuotationBuilderPage.js';
 import ApprovalListPage from '../features/approval/ApprovalListPage.js';
 import ApprovalDetailPage from '../features/approval/ApprovalDetailPage.js';
+
 // Phase 3 – Fulfillment
 import FulfillmentListPage from '../features/fulfillment/FulfillmentListPage.js';
 import FulfillmentDetailPage from '../features/fulfillment/FulfillmentDetailPage.js';
+
 // Phase 3 – Billing/Subscriptions
 import SubscriptionListPage from '../features/billing/SubscriptionListPage.js';
 import BillingDetailPage from '../features/billing/BillingDetailPage.js';
+
 // Phase 3 – Customer Portal (public, token-based, no internal layout)
 import CustomerPortalPage from '../features/portal/CustomerPortalPage.js';
+
 // Phase 4 – Invoice, Deal Health, Reports
 import InvoiceListPage from '../features/invoice/InvoiceListPage.js';
 import InvoiceDetailPage from '../features/invoice/InvoiceDetailPage.js';
@@ -39,9 +45,9 @@ export function AppRouter() {
       {/* Internal protected routes */}
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
+        {/* Phase 2 – Sales & Governance */}
         <Route path="customers" element={<CustomersPage />} />
-
-        {/* Phase 2 */}
+        <Route path="customers/:id" element={<CustomersPage />} />
         <Route path="products" element={<ProductListPage />} />
         <Route path="quotations" element={<QuotationListPage />} />
         <Route path="quotations/:id" element={<QuotationBuilderPage />} />
@@ -64,11 +70,20 @@ export function AppRouter() {
         <Route path="deal-health" element={<DealHealthPage />} />
 
         {/* Phase 4 – Reports (lazy) */}
-        <Route path="reports" element={
-          <React.Suspense fallback={<div className="flex items-center justify-center p-8"><div className="w-6 h-6 border-2 border-df-border border-t-df-nav rounded-full animate-spin" /></div>}>
-            <ReportsPage />
-          </React.Suspense>
-        } />
+        <Route
+          path="reports"
+          element={
+            <React.Suspense
+              fallback={
+                <div className="flex items-center justify-center p-8">
+                  <div className="w-6 h-6 border-2 border-df-border border-t-df-nav rounded-full animate-spin" />
+                </div>
+              }
+            >
+              <ReportsPage />
+            </React.Suspense>
+          }
+        />
       </Route>
 
       {/* Catch-all */}

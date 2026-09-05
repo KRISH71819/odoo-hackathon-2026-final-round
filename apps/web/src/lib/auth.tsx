@@ -67,19 +67,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  return React.createElement(
-    AuthContext.Provider,
-    {
-      value: {
+  return (
+    <AuthContext.Provider
+      value={{
         user,
         isLoading,
         isAuthenticated: !!user,
         login,
         signup,
         logout,
-      },
-    },
-    children,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
 }
 

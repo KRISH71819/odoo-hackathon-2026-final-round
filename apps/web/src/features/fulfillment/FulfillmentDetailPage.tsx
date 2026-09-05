@@ -118,7 +118,7 @@ export default function FulfillmentDetailPage() {
                 <tr key={line.id} className="border-b border-df-border/50">
                   <td className="py-2 pr-4 text-df-text">{line.quotationLine?.productName ?? '—'}</td>
                   <td className="py-2 pr-4 text-df-text-muted">{line.warehouse?.name ?? '—'}</td>
-                  <td className="py-2 text-right font-mono text-amber-400">{line.allocatedQty}</td>
+                  <td className="py-2 text-right font-mono text-df-text font-semibold">{line.allocatedQty}</td>
                 </tr>
               ))}
             </tbody>

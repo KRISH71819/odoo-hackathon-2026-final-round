@@ -35,10 +35,12 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/insights', insightsRoutes);
 
-// Aliases for root /api/quotations, /api/products, /api/approvals
+// ── Top-level API route mounts for direct frontend access ──
 app.use('/api', catalogRoutes);
 app.use('/api', salesRoutes);
 app.use('/api', governanceRoutes);
+app.use('/api', authRoutes);
+app.use('/api', insightsRoutes);
 
 // ── Error Handler (must be last) ──
 app.use(errorMiddleware);

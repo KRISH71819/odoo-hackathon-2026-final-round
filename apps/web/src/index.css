@@ -1,46 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── DealFlow360 Base Styles ── */
+/* ── shadcn/ui CSS Variables (Pure Black & White Theme) ── */
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    /* Pure Black & White / High Contrast Monochrome */
+    --background: 0 0% 0%; /* #000000 pure black */
+    --foreground: 0 0% 100%; /* #ffffff pure white */
+    --card: 0 0% 3%; /* #080808 pitch black card */
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%; /* #ffffff pure white */
+    --primary-foreground: 0 0% 0%; /* #000000 pure black text */
+    --secondary: 0 0% 12%; /* #1f1f1f dark neutral */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 10%; /* #1a1a1a */
+    --muted-foreground: 0 0% 63%; /* #a1a1a1 neutral text */
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 0% 22%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 16%; /* #292929 crisp monochrome border */
+    --input: 0 0% 16%;
+    --ring: 0 0% 100%;
+    --chart-1: 0 0% 100%;
+    --chart-2: 0 0% 80%;
+    --chart-3: 0 0% 60%;
+    --chart-4: 0 0% 40%;
+    --chart-5: 0 0% 20%;
+    --sidebar-background: 0 0% 0%; /* #000000 pure black sidebar */
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 0 0% 100%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #000000;
+  }
 }
 
-body {
-  min-height: 100vh;
-  overflow-x: hidden;
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+/* ── Selection ── */
+::selection { background: #ffffff; color: #000000; }
+
+/* ── Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Scrollbar styling for dark theme */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-track {
-  background: #1a1d23;
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
 }
 
-::-webkit-scrollbar-thumb {
-  background: #3a4049;
-  border-radius: 3px;
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #4a5059;
+@keyframes collapsible-down {
+  from { height: 0; }
+  to { height: var(--radix-collapsible-content-height); }
 }
 
-/* Focus visible for accessibility */
-*:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
+@keyframes collapsible-up {
+  from { height: var(--radix-collapsible-content-height); }
+  to { height: 0; }
 }
 
-/* Input placeholder */
-::placeholder {
-  color: #64748b;
+.animate-fade-in { animation: fadeIn 0.4s ease-out both; }
+.animate-slide-down { animation: slideDown 0.3s ease-out both; }
+.animate-accordion-down { animation: accordion-down 0.2s ease-out; }
+.animate-accordion-up { animation: accordion-up 0.2s ease-out; }
+
+.CollapsibleContent {
+  overflow: hidden;
 }
+.CollapsibleContent[data-state='open'] {
+  animation: collapsible-down 0.2s ease-out;
+}
+.CollapsibleContent[data-state='closed'] {
+  animation: collapsible-up 0.2s ease-out;
+}
+
+/* ── Login page pure black ── */
+.login-bg {
+  background: #000000;
+}
+
+/* ── Gradient text monochrome ── */
+.text-gradient {
+  background: linear-gradient(180deg, #ffffff 0%, #a1a1a1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Scrollbar hide ── */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Enterprise Data Table ── */
+table.data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8125rem; }
+table.data-table th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); white-space: nowrap; }
+table.data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid hsl(var(--border) / 0.5); vertical-align: middle; }
+table.data-table tbody tr { transition: background 0.15s ease; }
+table.data-table tbody tr:hover { background: hsl(var(--accent) / 0.5); }
+table.data-table tr:last-child td { border-bottom: none; }

@@ -128,3 +128,83 @@ export async function generatePortalToken(
     expiresAt: accessToken.expiresAt.toISOString(),
   };
 }
+
+export async function getCustomers() {
+  return prisma.user.findMany({
+    where: { role: 'CUSTOMER' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      tier: true,
+      createdAt: true,
+      _count: {
+        select: { quotationsAsCustomer: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+}
+
+export async function getCustomerById(id: string) {
+  const customer = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      tier: true,
+      createdAt: true,
+      quotationsAsCustomer: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          total: true,
+          riskLevel: true,
+          riskScore: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundError('Customer', id);
+  }
+
+  return customer;
+}
+
+export async function updateCustomerTier(id: string, tier: string) {
+  const customer = await prisma.user.findUnique({ where: { id } });
+  if (!customer || customer.role !== 'CUSTOMER') {
+    throw new NotFoundError('Customer', id);
+  }
+
+  return prisma.user.update({
+    where: { id },
+    data: { tier },
+    select: { id: true, name: true, email: true, tier: true, updatedAt: true },
+  });
+}
+
+export async function createCustomer(data: { name: string; email: string; tier?: string }) {
+  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  if (existing) {
+    throw new ConflictError(`Email ${data.email} is already registered`);
+  }
+
+  const defaultPassword = await bcrypt.hash('password123', SALT_ROUNDS);
+  return prisma.user.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      role: 'CUSTOMER',
+      tier: data.tier || 'BRONZE',
+      passwordHash: defaultPassword,
+    },
+    select: { id: true, name: true, email: true, tier: true, createdAt: true },
+  });
+}

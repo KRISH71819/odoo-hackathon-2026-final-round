@@ -8,9 +8,9 @@ import {
 } from 'recharts';
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: '#6b7280', PENDING_MANAGER: '#3b82f6', PENDING_FINANCE: '#6366f1',
-  APPROVED: '#10b981', REJECTED: '#ef4444', CONFIRMED: '#10b981',
-  BILLED: '#3b82f6', PAID: '#22c55e', REVISION: '#f59e0b',
+  DRAFT: '#525252', PENDING_MANAGER: '#a3a3a3', PENDING_FINANCE: '#737373',
+  APPROVED: '#ffffff', REJECTED: '#262626', CONFIRMED: '#ffffff',
+  BILLED: '#d4d4d4', PAID: '#ffffff', REVISION: '#737373',
 };
 
 export default function ReportsPage() {
@@ -130,31 +130,31 @@ export default function ReportsPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
             <Panel>
               <div className="text-center">
-                <div className="text-lg font-bold text-emerald-400">{formatCurrency(report.totalRevenue)}</div>
+                <div className="text-lg font-bold text-foreground">{formatCurrency(report.totalRevenue)}</div>
                 <div className="text-xs text-df-text-muted mt-1">Total Revenue</div>
               </div>
             </Panel>
             <Panel>
               <div className="text-center">
-                <div className="text-lg font-bold text-df-nav">{report.openQuotes}</div>
+                <div className="text-lg font-bold text-foreground">{report.openQuotes}</div>
                 <div className="text-xs text-df-text-muted mt-1">Open Quotes</div>
               </div>
             </Panel>
             <Panel>
               <div className="text-center">
-                <div className="text-lg font-bold text-df-text">{report.totalQuotes}</div>
+                <div className="text-lg font-bold text-foreground">{report.totalQuotes}</div>
                 <div className="text-xs text-df-text-muted mt-1">Total Quotes</div>
               </div>
             </Panel>
             <Panel>
               <div className="text-center">
-                <div className="text-lg font-bold text-amber-400">{(report.avgDiscountBps / 100).toFixed(1)}%</div>
+                <div className="text-lg font-bold text-foreground">{(report.avgDiscountBps / 100).toFixed(1)}%</div>
                 <div className="text-xs text-df-text-muted mt-1">Avg Discount</div>
               </div>
             </Panel>
             <Panel>
               <div className="text-center">
-                <div className="text-lg font-bold text-blue-400">{report.avgCycleDays}d</div>
+                <div className="text-lg font-bold text-foreground">{report.avgCycleDays}d</div>
                 <div className="text-xs text-df-text-muted mt-1">Avg Cycle</div>
               </div>
             </Panel>
@@ -166,10 +166,10 @@ export default function ReportsPage() {
               {statusChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={statusChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-                    <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
-                    <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                    <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 6, fontSize: 12 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+                    <XAxis dataKey="name" tick={{ fill: '#a3a3a3', fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
+                    <YAxis tick={{ fill: '#a3a3a3', fontSize: 10 }} />
+                    <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: 6, fontSize: 12, color: '#ffffff' }} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                       {statusChartData.map((entry, i) => (
                         <Cell key={i} fill={entry.fill} />
@@ -184,11 +184,11 @@ export default function ReportsPage() {
               {categoryChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={categoryChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-                    <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                    <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickFormatter={v => `$${v.toLocaleString()}`} />
-                    <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: 6, fontSize: 12 }} formatter={(v: any) => `$${Number(v).toLocaleString()}`} />
-                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+                    <XAxis dataKey="name" tick={{ fill: '#a3a3a3', fontSize: 10 }} />
+                    <YAxis tick={{ fill: '#a3a3a3', fontSize: 10 }} tickFormatter={(v: number) => `$${v.toLocaleString()}`} />
+                    <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: 6, fontSize: 12, color: '#ffffff' }} formatter={(v: any) => `$${Number(v).toLocaleString()}`} />
+                    <Bar dataKey="value" fill="#ffffff" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : <p className="text-xs text-df-text-muted">No data</p>}

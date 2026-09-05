@@ -1,120 +1,123 @@
-// ── DealFlow360 – Login Page ──
+// ── DealFlow360 – shadcn Login Page ──
 
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { DollarSign } from 'lucide-react';
 import { useAuth } from '../../lib/auth.js';
-import { Button, Input, NoticeStrip } from '../../components/ui.js';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card.js';
+import { Button } from '../../components/ui/button.js';
+import { Input } from '../../components/ui/input.js';
+
+const DEMO_USERS = [
+  { email: 'admin@dealflow.com', password: 'password123', label: 'Admin', initials: 'AD', color: 'bg-neutral-900 text-white border border-neutral-700 hover:bg-neutral-800' },
+  { email: 'rep@dealflow.com', password: 'password123', label: 'Sales Rep', initials: 'SR', color: 'bg-neutral-900 text-white border border-neutral-700 hover:bg-neutral-800' },
+  { email: 'manager@dealflow.com', password: 'password123', label: 'Manager', initials: 'MG', color: 'bg-neutral-900 text-white border border-neutral-700 hover:bg-neutral-800' },
+  { email: 'finance@dealflow.com', password: 'password123', label: 'Finance', initials: 'FI', color: 'bg-neutral-900 text-white border border-neutral-700 hover:bg-neutral-800' },
+  { email: 'customer@acme.com', password: 'password123', label: 'Customer', initials: 'CU', color: 'bg-neutral-900 text-white border border-neutral-700 hover:bg-neutral-800' },
+];
 
 export function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('admin@dealflow.com');
+  const [password, setPassword] = useState('password123');
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  if (isLoading) return null;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  React.useEffect(() => {
+    if (isAuthenticated) navigate('/', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSubmitting(true);
+    setLoading(true);
     try {
       await login(email, password);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
-  // Quick login buttons for demo
-  const demoAccounts = [
-    { label: 'Admin', email: 'admin@dealflow.com' },
-    { label: 'Sales Rep', email: 'rep@dealflow.com' },
-    { label: 'Manager', email: 'manager@dealflow.com' },
-    { label: 'Finance', email: 'finance@dealflow.com' },
-    { label: 'Customer', email: 'customer@acme.com' },
-  ];
-
-  const quickLogin = async (demoEmail: string) => {
+  const handleDemoLogin = async (user: (typeof DEMO_USERS)[0]) => {
     setError('');
-    setSubmitting(true);
+    setLoading(true);
     try {
-      await login(demoEmail, 'password123');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      await login(user.email, user.password);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-df-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-df-nav">DealFlow360</h1>
-          <p className="text-sm text-df-text-muted mt-1">Sales Operations Platform</p>
-        </div>
-
-        {/* Login Form */}
-        <div className="bg-df-surface border border-df-border rounded-lg p-6">
-          <div className="flex gap-2 mb-6">
-            <button className="flex-1 py-2 text-sm font-medium text-white bg-df-nav rounded">Login</button>
-            <button className="flex-1 py-2 text-sm font-medium text-df-text-muted bg-df-bg border border-df-border rounded">
-              Sign Up
-            </button>
+    <div className="login-bg min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-6">
+        {/* Brand */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <DollarSign className="h-5 w-5" />
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-
-            {error && (
-              <NoticeStrip variant="danger">{error}</NoticeStrip>
-            )}
-
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? 'Logging in...' : 'Login'}
-            </Button>
-          </form>
+          <h1 className="text-xl font-bold">DealFlow360</h1>
+          <p className="text-sm text-muted-foreground">Enterprise Sales Platform</p>
         </div>
 
-        {/* Demo quick login */}
-        <div className="mt-4">
-          <NoticeStrip variant="warning">
-            Demo mode: Use any button below to sign in with a test account.
-            <br />
-            <span className="text-xs opacity-75">All accounts use password: password123</span>
-          </NoticeStrip>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.email}
-                onClick={() => quickLogin(acc.email)}
-                disabled={submitting}
-                className="px-2.5 py-1 text-xs font-medium bg-df-surface border border-df-border rounded text-df-text-muted hover:text-df-text hover:border-df-nav transition-colors disabled:opacity-50"
-              >
-                {acc.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Login Card */}
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>Enter your credentials to continue</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive border border-destructive/20">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="email">Email</label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@dealflow.io" required />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="password">Password</label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+
+            {/* Demo Accounts */}
+            <div className="mt-6 pt-4 border-t">
+              <p className="text-xs text-muted-foreground text-center mb-3">Quick Demo Login</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {DEMO_USERS.map((u) => (
+                  <button
+                    key={u.email}
+                    onClick={() => handleDemoLogin(u)}
+                    disabled={loading}
+                    className="group flex flex-col items-center gap-1 disabled:opacity-50"
+                    title={`Login as ${u.label}`}
+                  >
+                    <div className={`w-9 h-9 rounded-full ${u.color} text-white flex items-center justify-center text-xs font-bold transition-transform group-hover:scale-110`}>
+                      {u.initials}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{u.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

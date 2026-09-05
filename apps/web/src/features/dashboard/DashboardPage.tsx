@@ -1,102 +1,245 @@
-// ── DealFlow360 – Dashboard Page (Phase 4 – Live Data) ──
+// ── DealFlow360 – shadcn Dashboard ──
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { PageHeader, Panel, StatusBadge, PrimaryButton, Spinner } from '../../components/ui.js';
+import {
+  ClipboardList, FileText, AlertTriangle, Users, ArrowUpRight, ArrowDownRight, Minus,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.js';
+import { Badge } from '../../components/ui/badge.js';
+import { Button } from '../../components/ui/button.js';
+import { Separator } from '../../components/ui/separator.js';
+import { Skeleton } from '../../components/ui/skeleton.js';
 import { useAuth } from '../../lib/auth.js';
 import { api } from '../../lib/api.js';
 import { formatDateTime } from '../../lib/format.js';
+import { useCustomers } from '../customer/useCustomers.js';
+import { useCreateQuotation } from '../quotation/useQuotations.js';
+import { StatusBadge, formatCents } from '../../components/ui.js';
 
 function useDashboard() {
   return useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api.get<any>('/insights/dashboard'),
-    refetchInterval: 30000, // refresh every 30s
+    refetchInterval: 30000,
   });
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  description,
+  href,
+}: {
+  title: string;
+  value: string | number;
+  icon: React.ComponentType<any>;
+  description?: string;
+  href?: string;
+}) {
+  const content = (
+    <Card className="hover:border-primary/30 transition-colors">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+      </CardContent>
+    </Card>
+  );
+
+  if (href) {
+    return <Link to={href} className="block">{content}</Link>;
+  }
+  return content;
 }
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data, isLoading } = useDashboard();
+  const { data: customersData } = useCustomers();
+  const createQuotation = useCreateQuotation();
+
   const kpi = data?.data;
+  const customers = customersData?.data || [];
+
+  const handleNewQuote = async () => {
+    if (customers.length === 0) {
+      navigate('/customers');
+      return;
+    }
+    try {
+      const res = await createQuotation.mutateAsync({
+        customerId: customers[0].id,
+        title: 'New Enterprise Deal',
+      });
+      navigate(`/quotations/${res.data.id}`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to create quotation');
+    }
+  };
 
   return (
-    <div>
-      <PageHeader
-        title="Sales Dashboard"
-        subtitle={`Welcome back, ${user?.name}`}
-      >
-        <Link to="/deal-health"><PrimaryButton>Deal Health</PrimaryButton></Link>
-        <Link to="/reports"><PrimaryButton>Reports</PrimaryButton></Link>
-      </PageHeader>
+    <div className="animate-fade-in space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user?.name}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild><Link to="/deal-health">🩺 Deal Health</Link></Button>
+          <Button variant="outline" asChild><Link to="/reports">📊 Reports</Link></Button>
+          <Button onClick={handleNewQuote} disabled={createQuotation.isPending}>
+            + New Quotation
+          </Button>
+        </div>
+      </div>
 
-      {isLoading ? <Spinner /> : (
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
+              <CardContent><Skeleton className="h-8 w-16" /><Skeleton className="h-3 w-32 mt-2" /></CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link to="/approvals" className="block">
-              <Panel title="Pending Approvals">
-                <div className="text-2xl font-bold text-df-nav">{kpi?.pendingApprovals ?? 0}</div>
-                <p className="text-xs text-df-text-dim mt-1">Awaiting review</p>
-              </Panel>
-            </Link>
-            <Link to="/quotations" className="block">
-              <Panel title="Open Quotations">
-                <div className="text-2xl font-bold text-df-nav">{kpi?.openQuotes ?? 0}</div>
-                <p className="text-xs text-df-text-dim mt-1">Draft / Pending / Revision</p>
-              </Panel>
-            </Link>
-            <Link to="/deal-health" className="block">
-              <Panel title="At-Risk Deals">
-                <div className="text-2xl font-bold text-amber-400">{kpi?.atRiskDeals ?? 0}</div>
-                <p className="text-xs text-df-text-dim mt-1">Medium or High risk</p>
-              </Panel>
-            </Link>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Pending Approvals"
+              value={kpi?.pendingApprovals ?? 0}
+              icon={ClipboardList}
+              description="Awaiting review"
+              href="/approvals"
+            />
+            <StatCard
+              title="Open Quotations"
+              value={kpi?.openQuotes ?? 0}
+              icon={FileText}
+              description="Draft / Pending / Revision"
+              href="/quotations"
+            />
+            <StatCard
+              title="At-Risk Deals"
+              value={kpi?.atRiskDeals ?? 0}
+              icon={AlertTriangle}
+              description="Medium or High risk"
+              href="/deal-health"
+            />
+            <StatCard
+              title="Managed Accounts"
+              value={customers.length}
+              icon={Users}
+              description="Bronze, Silver & Gold"
+              href="/customers"
+            />
           </div>
 
-          <Panel title="Recent Activity" className="mt-4">
-            {(kpi?.recentActivity ?? []).length === 0 ? (
-              <p className="text-sm text-df-text-muted">No recent activity</p>
-            ) : (
-              <div className="space-y-1">
-                {(kpi?.recentActivity ?? []).map((entry: any) => (
-                  <div key={entry.id} className="flex items-center gap-3 py-2 border-b border-df-border/50 last:border-0 text-xs">
-                    <div className="w-2 h-2 rounded-full bg-df-nav flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-df-text font-medium">{entry.user?.name ?? 'System'}</span>
-                      <span className="text-df-text-muted ml-1.5">
-                        {entry.action.replace(/_/g, ' ').toLowerCase()}
-                      </span>
-                      {entry.quotation && (
-                        <Link
-                          to={`/quotations/${entry.quotation.id}`}
-                          className="text-df-nav hover:underline ml-1.5"
-                        >
-                          {entry.quotation.number}
-                        </Link>
-                      )}
+          {/* Main Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Activity Feed */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(kpi?.recentActivity ?? []).length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p className="text-sm">No recent activity</p>
+                      <p className="text-xs mt-1">Create a quotation to get started.</p>
                     </div>
-                    <span className="text-df-text-dim flex-shrink-0">{formatDateTime(entry.createdAt)}</span>
+                  ) : (
+                    <div className="space-y-1">
+                      {(kpi?.recentActivity ?? []).map((entry: any) => (
+                        <div key={entry.id} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-accent/50 transition-colors">
+                          <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{entry.user?.name ?? 'System'}</span>
+                            <span className="text-muted-foreground ml-1.5">{entry.action.replace(/_/g, ' ').toLowerCase()}</span>
+                            {entry.quotation && (
+                              <Link to={`/quotations/${entry.quotation.id}`} className="text-primary hover:underline ml-1.5 font-semibold">
+                                {entry.quotation.number || entry.quotation.id.slice(0, 8)}
+                              </Link>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
+                            {formatDateTime(entry.createdAt)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Separator className="my-3" />
+                  <div className="flex justify-end">
+                    <Link to="/quotations" className="text-xs text-primary hover:underline font-medium">
+                      View all quotations →
+                    </Link>
                   </div>
-                ))}
-              </div>
-            )}
-          </Panel>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Quick Links */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            <Link to="/quotations" className="block">
-              <Panel><div className="text-center text-xs text-df-text-muted hover:text-df-text">📋 Quotations</div></Panel>
-            </Link>
-            <Link to="/invoices" className="block">
-              <Panel><div className="text-center text-xs text-df-text-muted hover:text-df-text">💳 Invoices</div></Panel>
-            </Link>
-            <Link to="/fulfillment" className="block">
-              <Panel><div className="text-center text-xs text-df-text-muted hover:text-df-text">📦 Fulfillment</div></Panel>
-            </Link>
-            <Link to="/products" className="block">
-              <Panel><div className="text-center text-xs text-df-text-muted hover:text-df-text">🏷️ Products</div></Panel>
-            </Link>
+            {/* Right sidebar */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Discount Governance</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { tier: 'BRONZE', label: 'Standard', max: '10.0%' },
+                    { tier: 'SILVER', label: 'Silver', max: '15.0%' },
+                    { tier: 'GOLD', label: 'Gold VIP', max: '25.0%' },
+                  ].map((rule) => (
+                    <div key={rule.tier} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={rule.tier} />
+                        <span>{rule.label}</span>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-muted-foreground">{rule.max}</span>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Category limits: Hardware (15%), Services (20%), Subscription (25%).
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Quick Links</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { path: '/quotations', icon: '📋', label: 'Quotations' },
+                      { path: '/approvals', icon: '✅', label: 'Approvals' },
+                      { path: '/fulfillment', icon: '📦', label: 'Fulfillment' },
+                      { path: '/subscriptions', icon: '🔄', label: 'Subscriptions' },
+                      { path: '/invoices', icon: '💳', label: 'Invoices' },
+                      { path: '/deal-health', icon: '🩺', label: 'Deal Health' },
+                    ].map((mod) => (
+                      <Link key={mod.path} to={mod.path} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-accent transition-colors">
+                        <span>{mod.icon}</span>
+                        <span>{mod.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </>
       )}
