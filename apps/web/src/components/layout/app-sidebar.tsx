@@ -143,7 +143,12 @@ export function AppSidebar() {
                   </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg" side="bottom" align="end" sideOffset={4}>
+              <DropdownMenuContent
+                className="w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-2 text-white shadow-2xl"
+                side="right"
+                align="end"
+                sideOffset={12}
+              >
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">

@@ -7,7 +7,8 @@
 /* ── shadcn/ui CSS Variables (Pure Black & White Theme) ── */
 
 @layer base {
-  :root {
+  :root,
+  .dark {
     --radius: 0.5rem;
     /* Pure Black & White / High Contrast Monochrome */
     --background: 0 0% 0%; /* #000000 pure black */
@@ -55,6 +56,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* ── Popover & Dropdown Opaque Surfaces ── */
+[role="menu"],
+[data-radix-popper-content-wrapper] > div,
+.bg-popover {
+  background-color: #09090b !important;
+  color: #ffffff !important;
+  border-color: #27272a !important;
 }
 
 /* ── Scrollbar ── */
