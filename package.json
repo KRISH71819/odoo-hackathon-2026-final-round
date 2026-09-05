@@ -14,7 +14,8 @@
     "db:seed": "pnpm exec tsx prisma/seed.ts",
     "db:reset": "pnpm exec prisma migrate reset --force && pnpm exec tsx prisma/seed.ts",
     "db:studio": "pnpm exec prisma studio",
-    "setup": "pnpm install && pnpm db:generate && pnpm exec prisma migrate dev --name init && pnpm db:seed"
+    "setup": "pnpm install && pnpm db:generate && pnpm exec prisma migrate dev --name init && pnpm db:seed",
+    "db:seed:reviewer": "pnpm exec tsx prisma/seed-reviewer.ts"
   },
   "devDependencies": {
     "@prisma/client": "^6.0.0",
