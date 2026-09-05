@@ -58,7 +58,7 @@ export function AppLayout() {
     );
   }
 
-  if (!isAuthenticated || user?.role === 'CUSTOMER') {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

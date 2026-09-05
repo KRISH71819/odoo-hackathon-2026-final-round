@@ -16,7 +16,7 @@ import {
 import * as salesService from './sales.service.js';
 
 export const salesRoutes = Router();
-salesRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
+salesRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
 
 // ── Quotation List ───────────────────────────────────────────
 
