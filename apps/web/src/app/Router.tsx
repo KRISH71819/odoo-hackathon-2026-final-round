@@ -24,7 +24,6 @@ import BillingDetailPage from '../features/billing/BillingDetailPage.js';
 
 // Phase 3 – Customer Portal (public, token-based, no internal layout)
 import CustomerPortalPage from '../features/portal/CustomerPortalPage.js';
-import CustomerDashboardPage from '../features/portal/CustomerDashboardPage.js';
 
 // Phase 4 – Invoice, Deal Health, Reports
 import InvoiceListPage from '../features/invoice/InvoiceListPage.js';
@@ -48,9 +47,6 @@ export function AppRouter() {
 
       {/* Customer portal (public, token-based, no internal layout) */}
       <Route path="/portal/:token" element={<CustomerPortalPage />} />
-
-      {/* Customer dashboard — JWT-auth, no sidebar */}
-      <Route path="/customer" element={<CustomerDashboardPage />} />
 
       {/* Internal protected routes */}
       <Route element={<AppLayout />}>
