@@ -22,8 +22,8 @@ const navItems: NavItem[] = [
   { label: 'Fulfillment', path: '/fulfillment', roles: ALL_INTERNAL },
   { label: 'Subscriptions', path: '/subscriptions', roles: ALL_INTERNAL },
   { label: 'Invoices', path: '/invoices', roles: ALL_INTERNAL },
-  { label: 'Deal Health', path: '/deal-health', roles: [UserRole.ADMIN, UserRole.SALES_MANAGER] },
-  { label: 'Reports', path: '/reports', roles: [UserRole.ADMIN, UserRole.SALES_MANAGER] },
+  { label: 'Deal Health', path: '/deal-health', roles: [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS] },
+  { label: 'Reports', path: '/reports', roles: ALL_INTERNAL },
   { label: 'Products', path: '/products', roles: [UserRole.ADMIN] },
 ];
 

@@ -11,13 +11,16 @@
   },
   "dependencies": {
     "@dealflow360/contracts": "workspace:*",
+    "@hookform/resolvers": "^3.9.0",
     "@tanstack/react-query": "^5.59.0",
+    "jspdf": "^4.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
     "react-router-dom": "^6.27.0",
-    "zod": "^3.23.0",
-    "@hookform/resolvers": "^3.9.0"
+    "recharts": "^3.10.1",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

@@ -8,3 +8,4 @@ export * from './governance.schemas.js';
 export * from './fulfillment.schemas.js';
 export * from './billing.schemas.js';
 export * from './portal.schemas.js';
+export * from './insights.schemas.js';
