@@ -1,7 +1,7 @@
 // ── DealFlow360 – Auth Service ──
 // Login, signup, me, and portal token management.
 
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../shared/prisma.js';
 import { UnauthorizedError, ConflictError, NotFoundError } from '../../shared/errors.js';
