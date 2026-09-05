@@ -29,6 +29,7 @@ export const AuthResponseSchema = z.object({
     email: z.string(),
     name: z.string(),
     role: z.nativeEnum(UserRole),
+    tier: z.string().optional(),
   }),
 });
 
@@ -41,6 +42,7 @@ export const UserDTOSchema = z.object({
   email: z.string(),
   name: z.string(),
   role: z.nativeEnum(UserRole),
+  tier: z.string().optional(),
   isActive: z.boolean(),
   createdAt: z.string(),
 });

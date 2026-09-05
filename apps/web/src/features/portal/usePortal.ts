@@ -76,3 +76,16 @@ export function useConfirmQuotation(token: string) {
     },
   });
 }
+
+export function useRejectQuotation(token: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data?: { reason?: string }) =>
+      portalRequest<any>('/quotation/reject', { method: 'POST', body: JSON.stringify(data || {}) }, token),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEYS.quote(token) });
+      qc.invalidateQueries({ queryKey: KEYS.thread(token) });
+    },
+  });
+}
+

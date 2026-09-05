@@ -11,5 +11,11 @@ export const SubmitCounterOfferSchema = z.object({
   message: z.string().max(2000).optional(),
 });
 
+export const RejectQuotationSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+
 export type AddNegotiationCommentInput = z.infer<typeof AddNegotiationCommentSchema>;
 export type SubmitCounterOfferInput = z.infer<typeof SubmitCounterOfferSchema>;
+export type RejectQuotationInput = z.infer<typeof RejectQuotationSchema>;
+

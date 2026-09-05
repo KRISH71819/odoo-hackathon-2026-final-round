@@ -244,7 +244,23 @@ export async function returnQuoteForRevision(approvalRequestId: string, userId: 
         quotationId: approval.quotationId,
         userId,
         action: AuditAction.QUOTATION_RETURNED,
+        reason,
         details: JSON.stringify({ step: approval.step, role: approval.role, reason }),
+      },
+    });
+
+    // Also record the revision feedback in NegotiationThread for persistent thread history
+    let thread = await tx.negotiationThread.findUnique({ where: { quotationId: approval.quotationId } });
+    if (!thread) {
+      thread = await tx.negotiationThread.create({ data: { quotationId: approval.quotationId } });
+    }
+    const roleLabel = approval.role === 'FINANCE' || approval.role === 'FINANCE_OPS' ? 'Finance Head' : 'Sales Manager';
+    await tx.negotiationComment.create({
+      data: {
+        threadId: thread.id,
+        userId,
+        message: `[Revision Returned by ${roleLabel}]: ${reason}`,
+        isChangeRequest: true,
       },
     });
   });

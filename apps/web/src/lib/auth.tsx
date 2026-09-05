@@ -6,11 +6,12 @@ import { api, setToken, getToken } from './api-client.js';
 import { UserRole } from '@dealflow360/contracts';
 import type { ApiResponse } from '@dealflow360/contracts';
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  tier?: string;
 }
 
 interface LoginResponse {
@@ -22,8 +23,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, role?: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  signup: (email: string, password: string, name: string, role?: UserRole) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -54,12 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post<ApiResponse<LoginResponse>>('/auth/login', { email, password });
     setToken(res.data.token);
     setUser(res.data.user);
+    return res.data.user;
   }, []);
 
   const signup = useCallback(async (email: string, password: string, name: string, role?: UserRole) => {
     const res = await api.post<ApiResponse<LoginResponse>>('/auth/signup', { email, password, name, role });
     setToken(res.data.token);
     setUser(res.data.user);
+    return res.data.user;
   }, []);
 
   const logout = useCallback(() => {

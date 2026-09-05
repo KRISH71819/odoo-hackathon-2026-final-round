@@ -68,6 +68,7 @@ export function useUpdateLine() {
       api.put(`/quotations/${quotationId}/lines/${lineId}`, data),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: KEYS.quotation(vars.quotationId) });
+      qc.invalidateQueries({ queryKey: KEYS.upsellSuggestions(vars.quotationId) });
       qc.invalidateQueries({ queryKey: KEYS.liveRisk(vars.quotationId) });
     },
   });

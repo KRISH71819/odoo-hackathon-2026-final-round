@@ -43,12 +43,15 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      if (mode === 'signup') {
-        await signup(email, password, name);
+      const authUser = mode === 'signup'
+        ? await signup(email, password, name)
+        : await login(email, password);
+
+      if (authUser.role === 'CUSTOMER') {
+        navigate('/my-portal', { replace: true });
       } else {
-        await login(email, password);
+        navigate('/', { replace: true });
       }
-      navigate('/');
     } catch (err: any) {
       setError(err.message || (mode === 'signup' ? 'Signup failed' : 'Login failed'));
     } finally {
@@ -60,7 +63,12 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(demoUser.email, demoUser.password);
+      const authUser = await login(demoUser.email, demoUser.password);
+      if (authUser.role === 'CUSTOMER') {
+        navigate('/my-portal', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

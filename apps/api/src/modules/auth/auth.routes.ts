@@ -32,8 +32,8 @@ authRoutes.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password, name } = req.body;
-      // Public signup is always a CUSTOMER. Privileged roles are admin-controlled.
-      const result = await authService.signup(email, password, name, 'CUSTOMER');
+      // Public signup is always a CUSTOMER. Defaults to BRONZE tier.
+      const result = await authService.signup(email, password, name, 'CUSTOMER', 'BRONZE');
       sendCreated(res, result);
     } catch (err) {
       next(err);

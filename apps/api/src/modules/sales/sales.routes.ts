@@ -14,6 +14,8 @@ import {
   PaginationQuerySchema,
 } from '@dealflow360/contracts';
 import * as salesService from './sales.service.js';
+import * as portalService from '../portal/portal.service.js';
+import { AppError } from '../../shared/errors.js';
 
 export const salesRoutes = Router();
 salesRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
@@ -23,6 +25,9 @@ salesRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, 
 salesRoutes.get('/quotations', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filter = QuotationFilterSchema.parse(req.query);
+    if (req.user!.role === UserRole.CUSTOMER) {
+      filter.customerId = req.user!.userId;
+    }
     const pagination = PaginationQuerySchema.parse(req.query);
     const page = pagination.page ?? 1;
     const limit = (pagination as any).limit ?? pagination.pageSize ?? 20;
@@ -159,5 +164,26 @@ salesRoutes.get('/quotations/:id/upsell-suggestions', authMiddleware, async (req
     res.json({ data: suggestions });
   } catch (err) { next(err); }
 });
+
+// ── Staff Negotiation Comment ────────────────────────────────
+salesRoutes.post(
+  '/quotations/:id/comments',
+  authMiddleware,
+  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { message } = req.body;
+      if (!message || typeof message !== 'string' || !message.trim()) {
+        throw new AppError(400, 'BAD_REQUEST', 'Message is required');
+      }
+      const comment = await portalService.addStaffNegotiationComment(
+        req.params.id as string,
+        req.user!.userId,
+        message.trim(),
+      );
+      res.status(201).json({ data: comment });
+    } catch (err) { next(err); }
+  },
+);
 
 export default salesRoutes;

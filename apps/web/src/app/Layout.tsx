@@ -62,6 +62,10 @@ export function AppLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  if (user?.role === 'CUSTOMER') {
+    return <Navigate to="/my-portal" replace />;
+  }
+
   const currentSegment = location.pathname.split('/')[1] || '';
   const currentTitle = ROUTE_NAMES[currentSegment] || 'Overview';
   const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'DF';

@@ -145,10 +145,36 @@ export default function QuotationListPage() {
               </thead>
               <tbody>
                 {quotations.map((q: any) => (
-                  <tr key={q.id} className="cursor-pointer" onClick={() => navigate(`/quotations/${q.id}`)}>
+                  <tr key={q.id} className="cursor-pointer hover:bg-charcoal-800/60 transition-colors" onClick={() => navigate(`/quotations/${q.id}`)}>
                     <td className="font-mono text-accent font-semibold">{q.number || '—'}</td>
-                    <td className="font-medium">{q.title}</td>
-                    <td>{q.customer?.name || '—'}</td>
+                    <td className="font-medium">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{q.title}</span>
+                        {(q.notes?.includes('[CUSTOMER QUOTE REQUEST]') || q.title?.startsWith('Quote Request:')) && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                            CUSTOMER REQUEST
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-charcoal-200">{q.customer?.name || '—'}</span>
+                        {q.customer?.tier && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            q.customer.tier === 'PLATINUM'
+                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                              : q.customer.tier === 'GOLD'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : q.customer.tier === 'SILVER'
+                              ? 'bg-slate-400/20 text-slate-200 border border-slate-400/30'
+                              : 'bg-amber-700/20 text-amber-400 border border-amber-700/30'
+                          }`}>
+                            {q.customer.tier}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="text-charcoal-400">{q.salesRep?.name || '—'}</td>
                     <td><StatusBadge status={q.status} /></td>
                     <td className="text-right font-mono font-medium">{formatCents(q.total ?? q.grandTotal)}</td>
@@ -203,8 +229,13 @@ export default function QuotationListPage() {
                       <div className="font-medium text-xs text-charcoal-100 truncate mb-1" title={q.title}>
                         {q.title}
                       </div>
-                      <div className="text-[11px] text-charcoal-400 truncate mb-2">
-                        🏢 {q.customer?.name || 'Customer'}
+                      <div className="flex items-center justify-between text-[11px] text-charcoal-300 truncate mb-2">
+                        <span className="truncate">🏢 {q.customer?.name || 'Customer'}</span>
+                        {q.customer?.tier && (
+                          <span className="ml-1 px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            {q.customer.tier}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-charcoal-700/50">
                         <span className="font-mono font-medium text-charcoal-200">{formatCents(q.total ?? q.grandTotal)}</span>

@@ -18,6 +18,7 @@ export interface LoginResult {
     email: string;
     name: string;
     role: string;
+    tier?: string;
   };
 }
 
@@ -48,6 +49,7 @@ export async function login(email: string, password: string): Promise<LoginResul
       email: user.email,
       name: user.name,
       role: user.role,
+      tier: user.tier,
     },
   };
 }
@@ -57,6 +59,7 @@ export async function signup(
   password: string,
   name: string,
   role: string,
+  tier: string = 'BRONZE',
 ): Promise<LoginResult> {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -66,7 +69,7 @@ export async function signup(
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
   const user = await prisma.user.create({
-    data: { email, passwordHash, name, role },
+    data: { email, passwordHash, name, role, tier: tier || 'BRONZE' },
   });
 
   const payload: AuthPayload = {
@@ -84,6 +87,7 @@ export async function signup(
       email: user.email,
       name: user.name,
       role: user.role,
+      tier: user.tier,
     },
   };
 }
@@ -91,7 +95,7 @@ export async function signup(
 export async function getMe(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, email: true, name: true, role: true, tier: true, isActive: true, createdAt: true },
   });
 
   if (!user) {

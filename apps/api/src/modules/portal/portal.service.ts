@@ -25,7 +25,8 @@ export async function getPortalQuotation(quotationId: string, customerId: string
   const quote = await prisma.quotation.findUnique({
     where: { id: quotationId },
     include: {
-      customer: { select: { id: true, name: true, email: true } },
+      customer: { select: { id: true, name: true, email: true, tier: true } },
+      salesRep: { select: { id: true, name: true, email: true } },
       lines: { orderBy: { sortOrder: 'asc' } },
     },
   });
@@ -67,6 +68,8 @@ export async function addNegotiationComment(
     QuotationStatus.SENT_TO_CUSTOMER,
     QuotationStatus.UNDER_NEGOTIATION,
     QuotationStatus.FULFILLMENT_READY,
+    QuotationStatus.APPROVED,
+    QuotationStatus.DRAFT,
   ];
   if (!portalAllowedStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Cannot comment in quotation status ${quote.status}`);
@@ -78,8 +81,8 @@ export async function addNegotiationComment(
     thread = await prisma.negotiationThread.create({ data: { quotationId } });
   }
 
-  // Move quote to UNDER_NEGOTIATION if it was SENT_TO_CUSTOMER
-  if (quote.status === QuotationStatus.SENT_TO_CUSTOMER) {
+  // Move quote to UNDER_NEGOTIATION if it was SENT_TO_CUSTOMER or DRAFT
+  if (quote.status === QuotationStatus.SENT_TO_CUSTOMER || quote.status === QuotationStatus.DRAFT) {
     await prisma.quotation.update({
       where: { id: quotationId },
       data: { status: QuotationStatus.UNDER_NEGOTIATION, version: { increment: 1 } },
@@ -124,9 +127,15 @@ export async function submitCounterOffer(
     QuotationStatus.SENT_TO_CUSTOMER,
     QuotationStatus.UNDER_NEGOTIATION,
     QuotationStatus.FULFILLMENT_READY,
+    QuotationStatus.APPROVED,
+    QuotationStatus.DRAFT,
   ];
   if (!negotiableStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Counter-offer not allowed in status ${quote.status}`);
+  }
+
+  if (!quote.lines || quote.lines.length === 0) {
+    throw new AppError(400, 'EMPTY_QUOTE', 'Cannot submit counter-offer on a quotation with no items.');
   }
 
   let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
@@ -220,9 +229,14 @@ export async function confirmQuotation(quotationId: string, customerId: string) 
     QuotationStatus.UNDER_NEGOTIATION,
     QuotationStatus.FULFILLMENT_READY,
     QuotationStatus.APPROVED,
+    QuotationStatus.DRAFT,
   ];
   if (!confirmableStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Quotation in status ${quote.status} cannot be confirmed`);
+  }
+
+  if (!quote.lines || quote.lines.length === 0) {
+    throw new AppError(400, 'EMPTY_QUOTE', 'Cannot confirm a quotation with no line items.');
   }
 
   await prisma.$transaction(async (tx) => {
@@ -247,24 +261,90 @@ export async function confirmQuotation(quotationId: string, customerId: string) 
   return getPortalQuotation(quotationId, customerId);
 }
 
+// ── Reject Quotation ──────────────────────────────────────────
+// Customer declines/rejects the quotation terms.
+
+export async function rejectQuotation(quotationId: string, customerId: string, reason?: string) {
+  const quote = await getPortalQuotation(quotationId, customerId);
+
+  // Idempotent: already rejected
+  if (quote.status === QuotationStatus.REJECTED) {
+    return quote;
+  }
+
+  // Cannot reject once confirmed, billed, or paid
+  if ([QuotationStatus.CONFIRMED, QuotationStatus.BILLED, QuotationStatus.PAID].includes(quote.status as QuotationStatus)) {
+    throw new AppError(409, 'INVALID_STATE', `Cannot reject a quotation that has already been confirmed/processed (${quote.status})`);
+  }
+
+  let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
+  if (!thread) thread = await prisma.negotiationThread.create({ data: { quotationId } });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.quotation.update({
+      where: { id: quotationId },
+      data: { status: QuotationStatus.REJECTED, version: { increment: 1 } },
+    });
+
+    const rejectionMsg = reason?.trim()
+      ? `[Quotation Declined by Customer]: ${reason.trim()}`
+      : '[Quotation Declined by Customer]: The customer has declined the quotation terms.';
+
+    await tx.negotiationComment.create({
+      data: {
+        threadId: thread!.id,
+        userId: customerId,
+        message: rejectionMsg,
+        isChangeRequest: false,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        quotationId,
+        userId: customerId,
+        action: AuditAction.QUOTATION_REJECTED,
+        reason: reason?.trim() || 'Customer declined quotation terms',
+        details: JSON.stringify({
+          rejectedBy: customerId,
+          reason: reason?.trim() || null,
+          previousStatus: quote.status,
+        }),
+      },
+    });
+  });
+
+  return getPortalQuotation(quotationId, customerId);
+}
+
+
 // ── Portal Token Management ───────────────────────────────────
 
 /**
- * Generate a portal access token for a specific customer+quotation.
+ * Generate (or re-generate) a CustomerAccessToken for a quotation.
  * Called by internal users (Sales Rep+) to send to customer.
  */
 export async function generatePortalToken(quotationId: string, userId: string) {
-  const quote = await prisma.quotation.findUnique({ where: { id: quotationId } });
+  const quote = await prisma.quotation.findUnique({
+    where: { id: quotationId },
+    include: { lines: true },
+  });
   if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
 
-  // Transition to SENT_TO_CUSTOMER if APPROVED or FULFILLMENT_READY
+  // Transition to SENT_TO_CUSTOMER if APPROVED, FULFILLMENT_READY, UNDER_NEGOTIATION, or DRAFT (with lines)
   const sendableStatuses: string[] = [
     QuotationStatus.APPROVED,
     QuotationStatus.FULFILLMENT_READY,
     QuotationStatus.SENT_TO_CUSTOMER,
+    QuotationStatus.UNDER_NEGOTIATION,
+    QuotationStatus.DRAFT,
   ];
   if (!sendableStatuses.includes(quote.status)) {
-    throw new AppError(409, 'INVALID_STATE', `Quotation must be APPROVED or FULFILLMENT_READY to send to customer (current: ${quote.status})`);
+    throw new AppError(409, 'INVALID_STATE', `Quotation cannot be sent to customer in status: ${quote.status}`);
+  }
+
+  if (quote.status === QuotationStatus.DRAFT && (!quote.lines || quote.lines.length === 0)) {
+    throw new AppError(400, 'EMPTY_QUOTE', 'Cannot send quotation with no products/lines to customer. Please add line items first.');
   }
 
   // Invalidate old tokens for this quotation
@@ -272,9 +352,9 @@ export async function generatePortalToken(quotationId: string, userId: string) {
     where: { quotationId, customerId: quote.customerId },
   });
 
-  // 7-day expiry
+  // 14-day expiry
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+  expiresAt.setDate(expiresAt.getDate() + 14);
 
   let tokenRecord;
   if (existing) {
@@ -294,7 +374,12 @@ export async function generatePortalToken(quotationId: string, userId: string) {
   }
 
   // Move to SENT_TO_CUSTOMER if not already there
-  if (quote.status === QuotationStatus.APPROVED || quote.status === QuotationStatus.FULFILLMENT_READY) {
+  if (
+    quote.status === QuotationStatus.APPROVED ||
+    quote.status === QuotationStatus.FULFILLMENT_READY ||
+    quote.status === QuotationStatus.UNDER_NEGOTIATION ||
+    quote.status === QuotationStatus.DRAFT
+  ) {
     await prisma.quotation.update({
       where: { id: quotationId },
       data: { status: QuotationStatus.SENT_TO_CUSTOMER, version: { increment: 1 } },
@@ -312,3 +397,146 @@ export async function generatePortalToken(quotationId: string, userId: string) {
 
   return { token: tokenRecord.token, expiresAt: tokenRecord.expiresAt };
 }
+
+/**
+ * Create a new quotation request from customer portal.
+ * Assigns to an active sales rep and includes customer name, tier, and requirements.
+ */
+export async function createCustomerQuoteRequest(customerId: string, input: { items: string; notes?: string }) {
+  const customer = await prisma.user.findUnique({ where: { id: customerId } });
+  if (!customer || customer.role !== 'CUSTOMER') {
+    throw new AppError(404, 'NOT_FOUND', 'Customer not found');
+  }
+
+  // Find assigned or available sales rep
+  const salesRep = await prisma.user.findFirst({
+    where: { role: 'SALES_REP', isActive: true },
+    orderBy: { createdAt: 'asc' },
+  }) || await prisma.user.findFirst({
+    where: { role: 'ADMIN', isActive: true },
+  });
+
+  if (!salesRep) {
+    throw new AppError(500, 'INTERNAL_ERROR', 'No active sales representative available');
+  }
+
+  const shortItems = input.items.trim().slice(0, 40);
+  const title = `Quote Request: ${shortItems}${input.items.length > 40 ? '...' : ''}`;
+  const fullNotes = `[CUSTOMER QUOTE REQUEST]\nCustomer: ${customer.name}\nTier: ${customer.tier}\nEmail: ${customer.email}\n\nRequested Items:\n${input.items.trim()}\n\nAdditional Notes:\n${(input.notes || '').trim() || 'None'}`;
+
+  const quotation = await prisma.quotation.create({
+    data: {
+      number: `Q-${Date.now().toString().slice(-6)}`,
+      title,
+      customerId: customer.id,
+      salesRepId: salesRep.id,
+      notes: fullNotes,
+      status: QuotationStatus.DRAFT,
+    },
+    include: {
+      customer: { select: { id: true, name: true, email: true, tier: true } },
+      salesRep: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  // Create negotiation thread with the initial request message
+  await prisma.negotiationThread.create({
+    data: {
+      quotationId: quotation.id,
+      comments: {
+        create: {
+          userId: customer.id,
+          message: `Customer Request (${customer.tier} Tier):\n\nItems Needed:\n${input.items.trim()}${input.notes ? `\n\nNotes:\n${input.notes.trim()}` : ''}`,
+          isChangeRequest: true,
+        },
+      },
+    },
+  });
+
+  // Pre-generate a customer access token so customer can view it anytime
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+  const tokenRecord = await prisma.customerAccessToken.create({
+    data: {
+      customerId: customer.id,
+      quotationId: quotation.id,
+      expiresAt,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      quotationId: quotation.id,
+      userId: customer.id,
+      action: AuditAction.QUOTATION_CREATED,
+      details: JSON.stringify({
+        source: 'CUSTOMER_PORTAL_REQUEST',
+        customerName: customer.name,
+        customerTier: customer.tier,
+        items: input.items,
+        notes: input.notes,
+      }),
+    },
+  });
+
+  return { ...quotation, portalToken: tokenRecord.token };
+}
+
+/**
+ * Retrieve or generate a portal token for a customer or sales rep without changing quotation state.
+ */
+export async function getOrCreateCustomerToken(quotationId: string, customerId: string) {
+  const existing = await prisma.customerAccessToken.findFirst({
+    where: { quotationId, customerId, expiresAt: { gt: new Date() } },
+  });
+  if (existing) {
+    return { token: existing.token, expiresAt: existing.expiresAt };
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+  const tokenRecord = await prisma.customerAccessToken.create({
+    data: {
+      customerId,
+      quotationId,
+      expiresAt,
+    },
+  });
+  return { token: tokenRecord.token, expiresAt: tokenRecord.expiresAt };
+}
+
+/**
+ * Add a comment from staff / sales rep into the quotation's negotiation thread.
+ */
+export async function addStaffNegotiationComment(
+  quotationId: string,
+  userId: string,
+  message: string,
+) {
+  let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
+  if (!thread) {
+    thread = await prisma.negotiationThread.create({ data: { quotationId } });
+  }
+
+  const comment = await prisma.negotiationComment.create({
+    data: {
+      threadId: thread.id,
+      userId,
+      message,
+      isChangeRequest: false,
+    },
+    include: { user: { select: { id: true, name: true, role: true } } },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      quotationId,
+      userId,
+      action: AuditAction.NEGOTIATION_COMMENT_ADDED,
+      details: JSON.stringify({ authorRole: 'STAFF', message }),
+    },
+  });
+
+  return comment;
+}
+

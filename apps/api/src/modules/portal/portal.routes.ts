@@ -10,25 +10,78 @@ import {
   UserRole,
   AddNegotiationCommentSchema,
   SubmitCounterOfferSchema,
+  RejectQuotationSchema,
 } from '@dealflow360/contracts';
 import * as portalService from './portal.service.js';
+import prisma from '../../shared/prisma.js';
+import { AppError } from '../../shared/errors.js';
 
 export const portalRoutes = Router();
 
-// ── Internal: Generate portal token ──────────────────────────
-// Uses JWT auth (internal), not portal token. Route placed here for
-// logical grouping with portal module.
+// ── Customer: Request Quoted Items ───────────────────────────
+// Customer submits their requirement list. Reaches sales rep with name, tier, and items.
+portalRoutes.post(
+  '/quote-request',
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { items, notes } = req.body;
+      if (!items || typeof items !== 'string' || !items.trim()) {
+        return res.status(400).json({ error: { message: 'Items needed is required' } });
+      }
+      const quotation = await portalService.createCustomerQuoteRequest(req.user!.userId, {
+        items,
+        notes: typeof notes === 'string' ? notes : undefined,
+      });
+      res.status(201).json({ data: quotation });
+    } catch (err) { next(err); }
+  },
+);
 
+// ── Customer or Sales Rep: Get portal token ───────────────────
+portalRoutes.get(
+  '/token/:quotationId',
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const quoteId = req.params.quotationId as string;
+      const quote = await prisma.quotation.findUnique({ where: { id: quoteId } });
+      if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
+
+      const isInternal = [UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN].includes(req.user!.role as UserRole);
+      const isOwner = req.user!.role === UserRole.CUSTOMER && quote.customerId === req.user!.userId;
+
+      if (!isInternal && !isOwner) {
+        throw new AppError(403, 'FORBIDDEN', 'Access denied to this quotation');
+      }
+
+      const token = await portalService.getOrCreateCustomerToken(quoteId, quote.customerId);
+      res.json({ data: token });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Internal: Generate portal token (Sales Rep+) ──────────────
 portalRoutes.post(
   '/token/:quotationId',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = await portalService.generatePortalToken(
-        req.params.quotationId as string,
-        req.user!.userId,
-      );
+      const quoteId = req.params.quotationId as string;
+      const quote = await prisma.quotation.findUnique({ where: { id: quoteId } });
+      if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
+
+      const isInternal = [UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN].includes(req.user!.role as UserRole);
+      const isOwner = req.user!.role === UserRole.CUSTOMER && quote.customerId === req.user!.userId;
+
+      if (!isInternal && !isOwner) {
+        throw new AppError(403, 'FORBIDDEN', 'Access denied to this quotation');
+      }
+
+      const token = isInternal
+        ? await portalService.generatePortalToken(req.params.quotationId as string, req.user!.userId)
+        : await portalService.getOrCreateCustomerToken(req.params.quotationId as string, quote.customerId);
+
       res.status(201).json({ data: token });
     } catch (err) { next(err); }
   },
@@ -87,6 +140,17 @@ customerRouter.post('/quotation/confirm', async (req: Request, res: Response, ne
     res.json({ data: quote });
   } catch (err) { next(err); }
 });
+
+// Reject quotation
+customerRouter.post('/quotation/reject', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const input = RejectQuotationSchema.parse(req.body);
+    const { quotationId, customerId } = req.portal!;
+    const quote = await portalService.rejectQuotation(quotationId, customerId, input.reason);
+    res.json({ data: quote });
+  } catch (err) { next(err); }
+});
+
 
 // Mount customer router under /customer
 portalRoutes.use('/customer', customerRouter);

@@ -40,7 +40,19 @@ export async function getQuotations(filter: QuotationFilter, page: number, limit
     prisma.quotation.count({ where }),
   ]);
 
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  const quotationIds = data.map((q) => q.id);
+  const tokens = await prisma.customerAccessToken.findMany({
+    where: { quotationId: { in: quotationIds }, expiresAt: { gt: new Date() } },
+    select: { quotationId: true, token: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  const tokenMap = new Map(tokens.map((t) => [t.quotationId, t.token]));
+  const enrichedData = data.map((q) => ({
+    ...q,
+    portalToken: tokenMap.get(q.id) || null,
+  }));
+
+  return { data: enrichedData, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }
 
 export async function getQuotationById(id: string) {
@@ -53,6 +65,16 @@ export async function getQuotationById(id: string) {
       approvalRequests: {
         orderBy: { step: 'asc' },
         include: { actions: { include: { user: { select: { id: true, name: true } } } } },
+      },
+      negotiationThread: {
+        include: {
+          comments: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: { select: { id: true, name: true, role: true, tier: true } },
+            },
+          },
+        },
       },
     },
   });
@@ -77,6 +99,21 @@ export async function createQuotation(input: CreateQuotationInput, salesRepId: s
       notes: input.notes,
       status: QuotationStatus.DRAFT,
     },
+  });
+
+  // Pre-generate portal token and thread so quotation is immediately access-ready for customer in portal
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+  await prisma.customerAccessToken.create({
+    data: {
+      customerId: input.customerId,
+      quotationId: quotation.id,
+      expiresAt,
+    },
+  });
+
+  await prisma.negotiationThread.create({
+    data: { quotationId: quotation.id },
   });
 
   await writeAudit(quotation.id, salesRepId, AuditAction.QUOTATION_CREATED, 'Quotation created');

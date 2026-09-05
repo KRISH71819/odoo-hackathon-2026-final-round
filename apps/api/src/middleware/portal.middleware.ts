@@ -27,7 +27,8 @@ declare global {
  */
 export async function portalMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
-    const token = req.headers['x-portal-token'] as string | undefined;
+    const token = (req.headers['x-portal-token'] as string | undefined) ||
+      req.headers.authorization?.replace(/^Bearer\s+/i, '');
 
     if (!token) {
       throw new UnauthorizedError('Missing portal access token');
