@@ -1,0 +1,452 @@
+// ── DealFlow360 – Full Domain Schema ──
+// All entities defined upfront to prevent schema chaos in later phases.
+// Phase 1 implements only auth/identity; other modules are skeleton.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════
+// IDENTITY MODULE
+// ═══════════════════════════════════════════
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("SALES_REP") // UserRole enum
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  quotationsAsRep      Quotation[]       @relation("SalesRep")
+  quotationsAsCustomer Quotation[]       @relation("Customer")
+  approvalActions      ApprovalAction[]
+  auditLogs            AuditLog[]
+  negotiationComments  NegotiationComment[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model CustomerAccessToken {
+  id          String   @id @default(cuid())
+  token       String   @unique @default(cuid())
+  customerId  String
+  quotationId String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([token])
+  @@index([customerId])
+}
+
+// ═══════════════════════════════════════════
+// CATALOG MODULE
+// ═══════════════════════════════════════════
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  sku         String   @unique
+  category    String   // ProductCategory enum
+  type        String   // ProductType enum
+  description String   @default("")
+  unitPrice   Int      // Minor currency units (cents)
+  costPrice   Int      @default(0)
+  taxRate     Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  variants       ProductVariant[]
+  priceListItems PriceListItem[]
+  quotationLines QuotationLine[]
+  stocks         Stock[]
+
+  @@index([category])
+  @@index([type])
+  @@index([sku])
+}
+
+model ProductVariant {
+  id         String @id @default(cuid())
+  productId  String
+  attribute  String // e.g., "Size", "Pack"
+  value      String // e.g., "Large", "10-pack"
+  extraPrice Int    @default(0) // Additional price in minor units
+
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quotationLines QuotationLine[]
+
+  @@index([productId])
+}
+
+model PriceList {
+  id           String   @id @default(cuid())
+  name         String
+  customerTier String   // CustomerTier enum
+  currency     String   @default("USD")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items PriceListItem[]
+
+  @@index([customerTier])
+}
+
+model PriceListItem {
+  id          String @id @default(cuid())
+  priceListId String
+  productId   String
+  unitPrice   Int    // Override price in minor units
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+}
+
+// ═══════════════════════════════════════════
+// SALES MODULE
+// ═══════════════════════════════════════════
+
+model Quotation {
+  id            String   @id @default(cuid())
+  number        String   @unique // Auto-generated: Q-1001, Q-1002, etc.
+  customerId    String
+  salesRepId    String
+  status        String   @default("DRAFT") // QuotationStatus enum
+  subtotal      Int      @default(0) // Minor currency units
+  taxTotal      Int      @default(0)
+  total         Int      @default(0)
+  orderDiscount Float    @default(0) // Percentage
+  marginPercent Float    @default(0)
+  riskScore     Float    @default(0)
+  riskLevel     String   @default("NONE") // RiskLevel enum
+  version       Int      @default(1) // Optimistic locking
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  customer          User              @relation("Customer", fields: [customerId], references: [id])
+  salesRep          User              @relation("SalesRep", fields: [salesRepId], references: [id])
+  lines             QuotationLine[]
+  approvalRequests  ApprovalRequest[]
+  fulfillmentPlans  FulfillmentPlan[]
+  billingSchedules  BillingSchedule[]
+  invoices          Invoice[]
+  negotiationThread NegotiationThread?
+  dealHealthAlerts  DealHealthAlert[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([salesRepId])
+  @@index([createdAt])
+}
+
+model QuotationLine {
+  id            String @id @default(cuid())
+  quotationId   String
+  productId     String
+  variantId     String?
+  description   String @default("")
+  quantity      Int    @default(1)
+  unitPrice     Int    // Minor currency units
+  lineDiscount  Float  @default(0) // Percentage
+  subtotal      Int    @default(0)
+  taxAmount     Int    @default(0)
+  total         Int    @default(0)
+  costPrice     Int    @default(0)
+  marginPercent Float  @default(0)
+  sortOrder     Int    @default(0)
+
+  quotation        Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product          Product           @relation(fields: [productId], references: [id])
+  variant          ProductVariant?   @relation(fields: [variantId], references: [id])
+  fulfillmentLines FulfillmentLine[]
+  billingSchedules BillingSchedule[]
+
+  @@index([quotationId])
+}
+
+// ═══════════════════════════════════════════
+// GOVERNANCE MODULE
+// ═══════════════════════════════════════════
+
+model DiscountRule {
+  id                 String @id @default(cuid())
+  customerTier       String // CustomerTier enum
+  maxDiscountPercent Float
+  description        String @default("")
+
+  @@unique([customerTier])
+}
+
+model CategoryDiscountRule {
+  id                 String @id @default(cuid())
+  category           String // ProductCategory enum
+  maxDiscountPercent Float
+  description        String @default("")
+
+  @@unique([category])
+}
+
+model ApprovalThreshold {
+  id                String @id @default(cuid())
+  minRiskScore      Float
+  maxRiskScore      Float
+  requiredApprovers String // JSON array of UserRole values
+  description       String @default("")
+}
+
+model ApprovalRequest {
+  id          String   @id @default(cuid())
+  quotationId String
+  status      String   @default("PENDING") // ApprovalRequestStatus enum
+  currentStep Int      @default(0)
+  totalSteps  Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quotation Quotation        @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  actions   ApprovalAction[]
+
+  @@index([quotationId])
+  @@index([status])
+}
+
+model ApprovalAction {
+  id                String   @id @default(cuid())
+  approvalRequestId String
+  userId            String
+  action            String   // ApprovalActionType enum
+  reason            String   @default("")
+  stepIndex         Int
+  createdAt         DateTime @default(now())
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@index([approvalRequestId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String   // e.g., "Quotation", "ApprovalRequest"
+  entityId   String
+  action     String   // e.g., "CREATED", "STATUS_CHANGED", "APPROVED"
+  userId     String
+  changes    String   @default("{}") // JSON string of changes
+  reason     String   @default("")
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════
+// OPERATIONS / FULFILLMENT MODULE
+// ═══════════════════════════════════════════
+
+model Warehouse {
+  id                 String   @id @default(cuid())
+  name               String
+  code               String   @unique
+  address            String   @default("")
+  shippingCostWeight Float    @default(1.0) // Lower = cheaper
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  stocks           Stock[]
+  fulfillmentLines FulfillmentLine[]
+}
+
+model Stock {
+  id               String   @id @default(cuid())
+  warehouseId      String
+  productId        String
+  quantity         Int      @default(0)
+  reservedQuantity Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, productId])
+  @@index([productId])
+}
+
+model FulfillmentPlan {
+  id          String   @id @default(cuid())
+  quotationId String
+  status      String   @default("PENDING") // FulfillmentStatus enum
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quotation Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  lines     FulfillmentLine[]
+
+  @@index([quotationId])
+}
+
+model FulfillmentLine {
+  id                String  @id @default(cuid())
+  fulfillmentPlanId String
+  quotationLineId   String
+  warehouseId       String
+  allocatedQty      Int     @default(0)
+  isBackorder       Boolean @default(false)
+
+  fulfillmentPlan FulfillmentPlan @relation(fields: [fulfillmentPlanId], references: [id], onDelete: Cascade)
+  quotationLine   QuotationLine   @relation(fields: [quotationLineId], references: [id])
+  warehouse       Warehouse       @relation(fields: [warehouseId], references: [id])
+
+  @@index([fulfillmentPlanId])
+}
+
+// ═══════════════════════════════════════════
+// BILLING MODULE
+// ═══════════════════════════════════════════
+
+model SubscriptionPlan {
+  id                 String   @id @default(cuid())
+  name               String
+  interval           String   // BillingInterval enum
+  pricePerInterval   Int      // Minor currency units
+  prorationRule      String   @default("DAY_BASED") // DAY_BASED or NONE
+  cancellationPolicy String   @default("IMMEDIATE") // IMMEDIATE, END_OF_PERIOD
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  billingSchedules BillingSchedule[]
+}
+
+model BillingSchedule {
+  id                 String   @id @default(cuid())
+  quotationId        String
+  quotationLineId    String
+  subscriptionPlanId String
+  startDate          DateTime
+  nextBillingDate    DateTime
+  interval           String   // BillingInterval enum
+  amount             Int      // Minor currency units
+  status             String   @default("ACTIVE") // ACTIVE, PAUSED, CANCELLED
+
+  quotation        Quotation        @relation(fields: [quotationId], references: [id])
+  quotationLine    QuotationLine    @relation(fields: [quotationLineId], references: [id])
+  subscriptionPlan SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+
+  @@index([quotationId])
+  @@index([nextBillingDate])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  quotationId String
+  number      String    @unique // INV-1001, etc.
+  status      String    @default("DRAFT") // InvoiceStatus enum
+  subtotal    Int       @default(0)
+  taxTotal    Int       @default(0)
+  total       Int       @default(0)
+  dueDate     DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  quotation  Quotation    @relation(fields: [quotationId], references: [id])
+  payments   Payment[]
+  creditNotes CreditNote[]
+
+  @@index([quotationId])
+  @@index([status])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  amount    Int      // Minor currency units
+  method    String   @default("BANK_TRANSFER")
+  reference String   @default("")
+  paidAt    DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model CreditNote {
+  id        String   @id @default(cuid())
+  invoiceId String
+  amount    Int      // Minor currency units
+  reason    String   @default("")
+  createdAt DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ═══════════════════════════════════════════
+// COLLABORATION MODULE
+// ═══════════════════════════════════════════
+
+model NegotiationThread {
+  id          String   @id @default(cuid())
+  quotationId String   @unique
+  createdAt   DateTime @default(now())
+
+  quotation Quotation            @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  comments  NegotiationComment[]
+}
+
+model NegotiationComment {
+  id               String   @id @default(cuid())
+  threadId         String
+  userId           String
+  message          String
+  isChangeRequest  Boolean  @default(false)
+  proposedDiscount Float?   // Proposed counter-discount
+  createdAt        DateTime @default(now())
+
+  thread NegotiationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User              @relation(fields: [userId], references: [id])
+
+  @@index([threadId])
+}
+
+// ═══════════════════════════════════════════
+// INSIGHTS MODULE
+// ═══════════════════════════════════════════
+
+model DealHealthAlert {
+  id          String    @id @default(cuid())
+  quotationId String
+  alertType   String    // AlertType enum
+  severity    String    // AlertSeverity enum
+  message     String
+  isResolved  Boolean   @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@index([alertType])
+  @@index([isResolved])
+}

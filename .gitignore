@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Local package manager state
+.pnpm-approve-builds
+
+# Build outputs & caches
+dist/
+build/
+.turbo/
+.vite/
+*.tsbuildinfo
+
+# Documentation & Reference specs (Do not push to GitHub)
+docs/
+*.pdf
+*.png
+DealFlow360_4_Phase_Core_Development_Blueprint.md
+dealflow360_text.txt
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.env
+!.env.example
+
+# Database & SQLite files
+prisma/dev.db
+prisma/dev.db-journal
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+.agents/
+.claude/
