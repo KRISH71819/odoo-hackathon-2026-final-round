@@ -1,13 +1,134 @@
-// ── DealFlow360 – Fulfillment Module (Phase 3 skeleton) ──
-import { Router, Request, Response } from 'express';
+// ── DealFlow360 – Fulfillment Routes ─────────────────────────
+// HTTP translation only. All business logic is in fulfillment.service.
+
+import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
-import { sendSuccess } from '../../shared/response.js';
+import { requireRole } from '../../middleware/rbac.middleware.js';
+import { UserRole, OverrideFulfillmentPlanSchema, PaginationQuerySchema } from '@dealflow360/contracts';
+import * as fulfillmentService from './fulfillment.service.js';
 
 export const fulfillmentRoutes = Router();
 
+// All fulfillment endpoints require authentication
 fulfillmentRoutes.use(authMiddleware);
 
-// Placeholder - Phase 3 will implement warehouse split and backorder
-fulfillmentRoutes.get('/', (_req: Request, res: Response) => {
-  sendSuccess(res, { message: 'Fulfillment module - implemented in Phase 3' });
+// ── List fulfillment plans ────────────────────────────────────
+
+fulfillmentRoutes.get('/plans', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page = 1, pageSize = 20 } = PaginationQuerySchema.parse(req.query) as any;
+    const result = await fulfillmentService.getFulfillmentPlans(Number(page), Number(pageSize));
+    res.json(result);
+  } catch (err) { next(err); }
 });
+
+// ── Warehouses ────────────────────────────────────────────────
+
+fulfillmentRoutes.get('/warehouses', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const warehouses = await fulfillmentService.getWarehouses();
+    res.json({ data: warehouses });
+  } catch (err) { next(err); }
+});
+
+// ── Get plan for a quotation ──────────────────────────────────
+
+fulfillmentRoutes.get('/quotations/:quotationId/plan', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const plan = await fulfillmentService.getFulfillmentPlanForQuotation(req.params.quotationId as string);
+    res.json({ data: plan });
+  } catch (err) { next(err); }
+});
+
+// ── Suggest plan ──────────────────────────────────────────────
+
+fulfillmentRoutes.post(
+  '/quotations/:quotationId/suggest',
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const plan = await fulfillmentService.suggestFulfillmentPlan(
+        req.params.quotationId as string,
+        req.user!.userId,
+      );
+      res.status(201).json({ data: plan });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Plan detail ───────────────────────────────────────────────
+
+fulfillmentRoutes.get('/plans/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const plan = await fulfillmentService.getFulfillmentPlanById(req.params.id as string);
+    res.json({ data: plan });
+  } catch (err) { next(err); }
+});
+
+// ── Accept plan ───────────────────────────────────────────────
+
+fulfillmentRoutes.post(
+  '/plans/:id/accept',
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const plan = await fulfillmentService.acceptFulfillmentPlan(
+        req.params.id as string,
+        req.user!.userId,
+      );
+      res.json({ data: plan });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Override plan ─────────────────────────────────────────────
+
+fulfillmentRoutes.put(
+  '/plans/:id/override',
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const input = OverrideFulfillmentPlanSchema.parse(req.body);
+      const plan = await fulfillmentService.overrideFulfillmentPlan(
+        req.params.id as string,
+        input,
+        req.user!.userId,
+      );
+      res.json({ data: plan });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Create backorder ──────────────────────────────────────────
+
+fulfillmentRoutes.post(
+  '/plans/:id/backorder',
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const plan = await fulfillmentService.createBackorder(
+        req.params.id as string,
+        req.user!.userId,
+      );
+      res.json({ data: plan });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Consolidate backorder ─────────────────────────────────────
+
+fulfillmentRoutes.post(
+  '/plans/:id/consolidate',
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const plan = await fulfillmentService.consolidateBackorder(
+        req.params.id as string,
+        req.user!.userId,
+      );
+      res.json({ data: plan });
+    } catch (err) { next(err); }
+  },
+);
+
+export default fulfillmentRoutes;
