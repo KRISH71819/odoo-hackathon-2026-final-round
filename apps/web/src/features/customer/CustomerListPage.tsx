@@ -276,9 +276,9 @@ function CustomerDetailModal({
   };
 
   const tierCeilings: Record<string, string> = {
-    BRONZE: '10.0% max line discount (1,000 bps)',
-    SILVER: '15.0% max line discount (1,500 bps)',
-    GOLD: '25.0% max line discount (2,500 bps)',
+    BRONZE: '10.0% max line discount',
+    SILVER: '15.0% max line discount',
+    GOLD: '25.0% max line discount',
   };
 
   return (

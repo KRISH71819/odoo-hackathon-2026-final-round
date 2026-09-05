@@ -37,7 +37,7 @@ export default function ProductListPage() {
             <Select label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value as ProductCategory })}>{Object.values(ProductCategory).map(c => <option key={c} value={c}>{c}</option>)}</Select>
             <Input label="Price (cents)" type="number" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: Number(e.target.value) })} />
             <Input label="Cost (cents)" type="number" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: Number(e.target.value) })} />
-            <Input label="Tax (bps)" type="number" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: Number(e.target.value) })} />
+            <Input label="Tax Rate (%)" type="number" step="0.01" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: Number(e.target.value) })} />
           </div>
           <div className="flex gap-2 mt-3">
             <PrimaryButton disabled={createProduct.isPending || !form.name || !form.sku} onClick={async () => { await createProduct.mutateAsync({ ...form, unit: 'unit', currencyCode: 'USD', isActive: true }); setShowCreate(false); }}>Create</PrimaryButton>

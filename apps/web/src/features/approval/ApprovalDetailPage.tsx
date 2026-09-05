@@ -45,7 +45,7 @@ export default function ApprovalDetailPage() {
         </Panel>
         <Panel>
           <p className="text-xs text-charcoal-400">Risk Score</p>
-          <p className="text-lg font-mono font-semibold">{quote.riskScore} bps</p>
+          <p className="text-lg font-mono font-semibold">{(quote.riskScore / 100).toFixed(1)}%</p>
         </Panel>
         <Panel>
           <p className="text-xs text-charcoal-400">Grand Total</p>

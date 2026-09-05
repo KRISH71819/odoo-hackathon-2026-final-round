@@ -14,6 +14,142 @@ import { useApprovalAction } from '../approval/useApprovals';
 import { UserRole } from '@dealflow360/contracts';
 
 
+function formatAuditEntry(entry: any): { rolePersonText?: string; messageText: string } {
+  let details: any = null;
+  if (entry.details) {
+    try {
+      details = typeof entry.details === 'string' ? JSON.parse(entry.details) : entry.details;
+    } catch {
+      details = null;
+    }
+  }
+
+  let rolePerson = '';
+  if (details?.role) {
+    rolePerson = String(details.role).replace(/_/g, ' ');
+  } else if (entry.user?.role) {
+    rolePerson = String(entry.user.role).replace(/_/g, ' ');
+  }
+
+  const action = (entry.action || '').replace('QUOTATION_', '');
+
+  if (action === 'RETURNED' || entry.action === 'QUOTATION_RETURNED') {
+    const reason = details?.reason || entry.reason || 'Returned for revision';
+    const stepStr = details?.step ? ` (Step ${details.step})` : '';
+    return {
+      rolePersonText: rolePerson ? `${rolePerson}${stepStr}` : undefined,
+      messageText: `Returned for revision: "${reason}"`,
+    };
+  }
+
+  if (action === 'REJECTED' || entry.action === 'QUOTATION_REJECTED') {
+    const reason = details?.reason || entry.reason || 'Quotation rejected';
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: `Rejected: "${reason}"`,
+    };
+  }
+
+  if (action === 'APPROVED' || entry.action === 'QUOTATION_APPROVED') {
+    const stepStr = details?.step ? `Step ${details.step}` : 'Quotation';
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: `Approved ${stepStr}`,
+    };
+  }
+
+  if (action === 'SUBMITTED' || entry.action === 'QUOTATION_SUBMITTED') {
+    const risk = details?.riskLevel ? `Risk: ${details.riskLevel}` : '';
+    const scorePct = details?.riskScore != null ? ` (${(details.riskScore / 100).toFixed(1)}%)` : '';
+    const approvers = details?.requiredApprovers?.length
+      ? ` • Required approvers: ${details.requiredApprovers.map((r: string) => r.replace(/_/g, ' ')).join(', ')}`
+      : '';
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: `Submitted for review • ${risk}${scorePct}${approvers}`,
+    };
+  }
+
+  if (action === 'UPDATED' || entry.action === 'QUOTATION_UPDATED') {
+    if (details?.orderDiscountBps != null) {
+      return {
+        rolePersonText: rolePerson || undefined,
+        messageText: `Order discount changed to ${(details.orderDiscountBps / 100).toFixed(1)}%`,
+      };
+    }
+    if (details?.total != null) {
+      return {
+        rolePersonText: rolePerson || undefined,
+        messageText: `Total updated to $${(details.total / 100).toFixed(2)}`,
+      };
+    }
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: 'Quotation updated',
+    };
+  }
+
+  if (entry.action === 'LINE_ADDED') {
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: `Added product ${details?.productName || ''} (${details?.quantity || 1}x)`,
+    };
+  }
+
+  if (entry.action === 'LINE_UPDATED') {
+    if (details?.lineDiscountBps != null) {
+      return {
+        rolePersonText: rolePerson || undefined,
+        messageText: `${details?.productName || 'Line item'} discount set to ${(details.lineDiscountBps / 100).toFixed(1)}%`,
+      };
+    }
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: `Updated ${details?.productName || 'line item'}`,
+    };
+  }
+
+  if (entry.action === 'LINE_REMOVED') {
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: `Removed line item ${details?.productName || ''}`,
+    };
+  }
+
+  if (entry.action === 'NEGOTIATION_COMMENT_ADDED') {
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: details?.isChangeRequest ? 'Submitted negotiation change request' : 'Added negotiation message',
+    };
+  }
+
+  if (action === 'CONFIRMED' || entry.action === 'QUOTATION_CONFIRMED') {
+    return {
+      rolePersonText: rolePerson || undefined,
+      messageText: 'Customer confirmed quotation terms',
+    };
+  }
+
+  if (entry.reason) {
+    return { rolePersonText: rolePerson || undefined, messageText: entry.reason };
+  }
+
+  if (details && typeof details === 'object') {
+    const cleaned = Object.entries(details)
+      .filter(([_, v]) => v != null && v !== '')
+      .map(([k, v]) => {
+        if (k.toLowerCase().includes('discountbps') || k.toLowerCase().includes('riskscore')) {
+          return `${k.replace(/bps/i, ' %')}: ${(Number(v) / 100).toFixed(1)}%`;
+        }
+        return `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`;
+      })
+      .join(' • ');
+    return { rolePersonText: rolePerson || undefined, messageText: cleaned || action };
+  }
+
+  return { rolePersonText: rolePerson || undefined, messageText: entry.details || action };
+}
+
 export default function QuotationBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,6 +186,9 @@ export default function QuotationBuilderPage() {
   const [governanceLoading, setGovernanceLoading] = useState(false);
   const [staffReplyText, setStaffReplyText] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
+  const [portalNotice, setPortalNotice] = useState<string | null>(null);
+  const [copiedPortalLink, setCopiedPortalLink] = useState(false);
+  const [isSendingPortal, setIsSendingPortal] = useState(false);
 
   // Line inline-editing state
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -148,16 +287,42 @@ export default function QuotationBuilderPage() {
     }
   };
 
-  const handleOpenPortal = async () => {
+  const handleSendToCustomer = async () => {
+    setIsSendingPortal(true);
     try {
       const res = await api.post<any>(`/portal/token/${quote.id}`);
       const token = res.data?.token;
-      queryClient.invalidateQueries({ queryKey: ['quotation', id] });
+      await queryClient.invalidateQueries({ queryKey: ['quotation', id] });
+      await queryClient.invalidateQueries({ queryKey: ['quotations'] });
       if (token) {
-        window.open(`/portal/${token}`, '_blank');
+        const portalUrl = `${window.location.origin}/portal/${token}`;
+        setPortalNotice(`Quotation sent to customer! Secure portal link: ${portalUrl}`);
       }
     } catch (e: any) {
-      alert('Could not generate portal link: ' + (e?.message || 'Error'));
+      alert('Could not send quotation: ' + (e?.message || 'Error'));
+    } finally {
+      setIsSendingPortal(false);
+    }
+  };
+
+  const handleCopyPortalLink = async () => {
+    try {
+      let token: string | null = null;
+      try {
+        const res = await api.get<any>(`/portal/token/${quote.id}`);
+        token = res.data?.token;
+      } catch {
+        const res = await api.post<any>(`/portal/token/${quote.id}`);
+        token = res.data?.token;
+      }
+      if (token) {
+        const portalUrl = `${window.location.origin}/portal/${token}`;
+        await navigator.clipboard.writeText(portalUrl);
+        setCopiedPortalLink(true);
+        setTimeout(() => setCopiedPortalLink(false), 3000);
+      }
+    } catch (e: any) {
+      alert('Could not copy portal link: ' + (e?.message || 'Error'));
     }
   };
 
@@ -229,10 +394,16 @@ export default function QuotationBuilderPage() {
     <div>
       <PageHeader title={quote.title}>
         <StatusBadge status={quote.status} className="text-sm px-3 py-1" />
-        {(['APPROVED', 'FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION'].includes(quote.status) &&
+        {(['APPROVED', 'FULFILLMENT_READY'].includes(quote.status) &&
           (isSalesRep || user?.role === UserRole.SALES_MANAGER)) && (
-          <SecondaryButton onClick={handleOpenPortal}>
-            {quote.status === 'SENT_TO_CUSTOMER' ? '🔗 Open Customer Portal' : '📤 Send Quotation to Customer'}
+          <SecondaryButton onClick={handleSendToCustomer} disabled={isSendingPortal}>
+            {isSendingPortal ? 'Sending…' : '📤 Send Quotation to Customer'}
+          </SecondaryButton>
+        )}
+        {(['SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION'].includes(quote.status) &&
+          (isSalesRep || user?.role === UserRole.SALES_MANAGER)) && (
+          <SecondaryButton onClick={handleCopyPortalLink}>
+            {copiedPortalLink ? '✓ Portal Link Copied' : '🔗 Copy Customer Portal Link'}
           </SecondaryButton>
         )}
         {canOperateFulfillment && (quote.status === 'APPROVED' || quote.status === 'FULFILLMENT_READY') && (
@@ -257,6 +428,29 @@ export default function QuotationBuilderPage() {
         )}
         <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
       </PageHeader>
+
+      {portalNotice && (
+        <NoticeStrip variant="info" className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-success/40 bg-success/10 text-success">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span>✓</span>
+            <span className="font-mono text-xs truncate">{portalNotice}</span>
+          </div>
+          <button
+            onClick={() => {
+              const parts = portalNotice.split('link: ');
+              const url = parts[1] || portalNotice;
+              if (url) {
+                navigator.clipboard.writeText(url);
+                setCopiedPortalLink(true);
+                setTimeout(() => setCopiedPortalLink(false), 3000);
+              }
+            }}
+            className="px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-700 text-xs text-charcoal-200 rounded border border-charcoal-600 shrink-0 font-medium"
+          >
+            {copiedPortalLink ? '✓ Copied!' : 'Copy Link'}
+          </button>
+        </NoticeStrip>
+      )}
 
       {/* Visual Lifecycle Stepper */}
       <div className="bg-charcoal-900 border border-charcoal-700 rounded-lg p-3 mb-4 overflow-x-auto">
@@ -313,7 +507,7 @@ export default function QuotationBuilderPage() {
               </span>
             </div>
             <span className="text-xs text-charcoal-300">
-              Risk: <strong className={displayRiskLevel === 'HIGH' ? 'text-danger' : 'text-warning'}>{displayRiskLevel}</strong> ({displayRiskScore} bps)
+              Risk: <strong className={displayRiskLevel === 'HIGH' ? 'text-danger' : 'text-warning'}>{displayRiskLevel}</strong> ({(displayRiskScore / 100).toFixed(1)}%)
             </span>
           </div>
           <p className="text-xs text-charcoal-400 mb-3">
@@ -505,7 +699,7 @@ export default function QuotationBuilderPage() {
           </p>
           <div className="flex items-center gap-2">
             <StatusBadge status={displayRiskLevel ?? 'NONE'} className="text-sm" />
-            {displayRiskScore > 0 && <span className="text-xs text-charcoal-400">Score: {displayRiskScore} bps</span>}
+            {displayRiskScore > 0 && <span className="text-xs text-charcoal-400">Score: {(displayRiskScore / 100).toFixed(1)}%</span>}
           </div>
           {displayRiskReasons.length > 0 && (
             <ul className="mt-1 space-y-0.5">
@@ -802,15 +996,23 @@ export default function QuotationBuilderPage() {
           {/* Audit Trail */}
           {auditTrail.length > 0 && (
             <Panel title="Audit Trail" className="mt-4">
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {auditTrail.map((entry: any) => (
-                  <div key={entry.id} className="flex items-start gap-2 text-xs">
-                    <span className="text-charcoal-500 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</span>
-                    <span className="font-medium text-charcoal-300">{entry.user?.name}</span>
-                    <StatusBadge status={entry.action.replace('QUOTATION_', '')} />
-                    {entry.details && <span className="text-charcoal-400 truncate">{entry.details}</span>}
-                  </div>
-                ))}
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {auditTrail.map((entry: any) => {
+                  const { rolePersonText, messageText } = formatAuditEntry(entry);
+                  return (
+                    <div key={entry.id} className="flex flex-wrap items-center gap-2 text-xs py-1.5 border-b border-charcoal-800/60 last:border-b-0">
+                      <span className="text-charcoal-500 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</span>
+                      <span className="font-semibold text-charcoal-200">{entry.user?.name}</span>
+                      {rolePersonText && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-accent/15 text-accent border border-accent/25">
+                          {rolePersonText}
+                        </span>
+                      )}
+                      <StatusBadge status={entry.action.replace('QUOTATION_', '')} />
+                      <span className="text-charcoal-300 flex-1">{messageText}</span>
+                    </div>
+                  );
+                })}
               </div>
             </Panel>
           )}

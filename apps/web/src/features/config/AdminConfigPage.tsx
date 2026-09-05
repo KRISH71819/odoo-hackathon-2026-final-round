@@ -129,9 +129,10 @@ export default function AdminConfigPage() {
                 </div>
 
                 <Input
-                  label="Max discount (bps)"
+                  label="Max discount (%)"
                   type="number"
-                  value={rule.maxDiscountBps}
+                  step="0.5"
+                  value={rule.maxDiscountBps != null ? rule.maxDiscountBps / 100 : ''}
                   onChange={(event) =>
                     setDiscounts((current: any) => ({
                       ...current,
@@ -139,7 +140,7 @@ export default function AdminConfigPage() {
                         item.id === rule.id
                           ? {
                               ...item,
-                              maxDiscountBps: Number(event.target.value),
+                              maxDiscountBps: Math.round(Number(event.target.value) * 100),
                             }
                           : item,
                       ),
@@ -165,9 +166,10 @@ export default function AdminConfigPage() {
                 </div>
 
                 <Input
-                  label="Max discount (bps)"
+                  label="Max discount (%)"
                   type="number"
-                  value={rule.maxDiscountBps}
+                  step="0.5"
+                  value={rule.maxDiscountBps != null ? rule.maxDiscountBps / 100 : ''}
                   onChange={(event) =>
                     setDiscounts((current: any) => ({
                       ...current,
@@ -175,7 +177,7 @@ export default function AdminConfigPage() {
                         item.id === rule.id
                           ? {
                               ...item,
-                              maxDiscountBps: Number(event.target.value),
+                              maxDiscountBps: Math.round(Number(event.target.value) * 100),
                             }
                           : item,
                       ),

@@ -52,7 +52,7 @@ export default function ReportsPage() {
       { Metric: 'Total Revenue', Value: (report.totalRevenue / 100).toFixed(2) },
       { Metric: 'Open Quotes', Value: report.openQuotes },
       { Metric: 'Total Quotes', Value: report.totalQuotes },
-      { Metric: 'Avg Discount (BPS)', Value: report.avgDiscountBps },
+      { Metric: 'Avg Discount (%)', Value: `${(report.avgDiscountBps / 100).toFixed(1)}%` },
       { Metric: 'Avg Cycle (Days)', Value: report.avgCycleDays },
     ];
     const wb = XLSX.utils.book_new();
