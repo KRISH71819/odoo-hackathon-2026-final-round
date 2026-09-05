@@ -17,6 +17,7 @@ docs/
 *.pdf
 *.png
 *.md
+!README.md
 dealflow360_text.txt
 
 # Environment & Secrets
