@@ -63,7 +63,7 @@ export async function getQuotationAuditTrail(quotationId: string) {
 
 // ── Approve ──────────────────────────────────────────────────
 
-export async function approveQuote(approvalRequestId: string, userId: string, reason?: string) {
+export async function approveQuote(approvalRequestId: string, userId: string, userRole: string, reason?: string) {
   const approval = await prisma.approvalRequest.findUnique({
     where: { id: approvalRequestId },
     include: {
@@ -74,6 +74,7 @@ export async function approveQuote(approvalRequestId: string, userId: string, re
   });
 
   if (!approval) throw new AppError(404, 'NOT_FOUND', 'Approval request not found');
+  assertApprovalRole(approval.role, userRole);
 
   // Idempotency: already approved → return success silently
   if (approval.status === ApprovalStatus.APPROVED) {
@@ -153,7 +154,7 @@ export async function approveQuote(approvalRequestId: string, userId: string, re
 
 // ── Reject ───────────────────────────────────────────────────
 
-export async function rejectQuote(approvalRequestId: string, userId: string, reason: string) {
+export async function rejectQuote(approvalRequestId: string, userId: string, userRole: string, reason: string) {
   if (!reason?.trim()) {
     throw new AppError(400, 'REASON_REQUIRED', 'Reason is required for rejection');
   }
@@ -164,6 +165,7 @@ export async function rejectQuote(approvalRequestId: string, userId: string, rea
   });
 
   if (!approval) throw new AppError(404, 'NOT_FOUND', 'Approval request not found');
+  assertApprovalRole(approval.role, userRole);
 
   // Idempotency
   if (approval.status === ApprovalStatus.REJECTED) {
@@ -204,7 +206,7 @@ export async function rejectQuote(approvalRequestId: string, userId: string, rea
 
 // ── Return for Revision ──────────────────────────────────────
 
-export async function returnQuoteForRevision(approvalRequestId: string, userId: string, reason: string) {
+export async function returnQuoteForRevision(approvalRequestId: string, userId: string, userRole: string, reason: string) {
   if (!reason?.trim()) {
     throw new AppError(400, 'REASON_REQUIRED', 'Reason is required for returning a quotation');
   }
@@ -215,6 +217,7 @@ export async function returnQuoteForRevision(approvalRequestId: string, userId: 
   });
 
   if (!approval) throw new AppError(404, 'NOT_FOUND', 'Approval request not found');
+  assertApprovalRole(approval.role, userRole);
 
   if (approval.status !== ApprovalStatus.PENDING) {
     throw new AppError(409, 'INVALID_STATE', `Approval is ${approval.status}, cannot return for revision`);
@@ -271,4 +274,13 @@ export async function updateCategoryDiscountRule(id: string, maxDiscountBps: num
     where: { id },
     data: { maxDiscountBps, ...(description !== undefined && { description }) },
   });
+}
+
+function assertApprovalRole(requiredRole: string, actorRole: string) {
+  if (actorRole === 'ADMIN') return;
+  const normalizedRequired = requiredRole === 'FINANCE' ? 'FINANCE_OPS' : requiredRole;
+  const normalizedActor = actorRole === 'FINANCE' ? 'FINANCE_OPS' : actorRole;
+  if (normalizedRequired !== normalizedActor) {
+    throw new AppError(403, 'FORBIDDEN', `Approval step requires ${requiredRole}; current role is ${actorRole}`);
+  }
 }

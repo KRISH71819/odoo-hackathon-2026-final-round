@@ -20,7 +20,7 @@ import type { RecordPaymentInput, ReportFilter } from '@dealflow360/contracts';
 export async function createInvoice(quotationId: string, userId: string) {
   const quote = await prisma.quotation.findUnique({
     where: { id: quotationId },
-    include: { invoices: true },
+    include: { invoices: true, lines: { include: { product: true } } },
   });
   if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
 
@@ -31,6 +31,12 @@ export async function createInvoice(quotationId: string, userId: string) {
     throw new AppError(409, 'INVALID_STATE', `Quotation must be CONFIRMED to create invoice (current: ${quote.status})`);
   }
 
+  const oneTimeLines = quote.lines.filter((line) => line.product.type !== 'SUBSCRIPTION');
+  if (oneTimeLines.length === 0) return null;
+  const subtotal = oneTimeLines.reduce((sum, line) => sum + line.afterDiscount, 0);
+  const taxTotal = oneTimeLines.reduce((sum, line) => sum + line.taxAmount, 0);
+  const total = oneTimeLines.reduce((sum, line) => sum + line.total, 0);
+
   // 30-day due date
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 30);
@@ -40,9 +46,9 @@ export async function createInvoice(quotationId: string, userId: string) {
       data: {
         quotationId,
         number: `INV-${Date.now().toString().slice(-6)}`,
-        subtotal: quote.subtotal,
-        taxTotal: quote.taxTotal,
-        total: quote.total,
+        subtotal,
+        taxTotal,
+        total,
         status: InvoiceStatus.SENT,
         dueDate,
       },
@@ -195,9 +201,10 @@ export async function markInvoicePaid(invoiceId: string, input: RecordPaymentInp
 // ── Deal Health ─────────────────────────────────────────────
 
 // ponytail: configurable threshold could move to a DB table; hardcoded default is fine for hackathon
-const STALLED_DAYS = 7;
-const DELIVERY_SLIPPAGE_DAYS = 3;
-const ANOMALY_MULTIPLIER = 1.5;
+const STALLED_DAYS = Number(process.env.STALLED_DEAL_DAYS ?? 7);
+const DELIVERY_SLIPPAGE_DAYS = Number(process.env.DELIVERY_SLIPPAGE_DAYS ?? 3);
+const APPROVAL_AGING_HOURS = Number(process.env.APPROVAL_AGING_HOURS ?? 24);
+const ANOMALY_MULTIPLIER = Number(process.env.DISCOUNT_ANOMALY_MULTIPLIER ?? 1.5);
 
 export async function getDealHealthAlerts() {
   const now = new Date();
@@ -286,7 +293,15 @@ export async function getDealHealthAlerts() {
     take: 50,
   });
 
-  return { stalledDeals, discountAnomalies, deliverySlippage: slippedPlans };
+  const approvalCutoff = new Date(now.getTime() - APPROVAL_AGING_HOURS * 3600000);
+  const approvalAging = await prisma.approvalRequest.findMany({
+    where: { status: 'PENDING', createdAt: { lt: approvalCutoff } },
+    include: { quotation: { select: { id: true, number: true, title: true, customer: { select: { name: true } }, salesRep: { select: { name: true } } } } },
+    orderBy: { createdAt: 'asc' },
+    take: 50,
+  });
+
+  return { stalledDeals, discountAnomalies, deliverySlippage: slippedPlans, approvalAging };
 }
 
 export async function nudgeAlert(quotationId: string, userId: string) {
@@ -319,6 +334,7 @@ export async function getReportData(filters: ReportFilter) {
   const quoteWhere: Record<string, unknown> = { ...dateFilter };
   if (filters.salesRepId) quoteWhere.salesRepId = filters.salesRepId;
   if (filters.status) quoteWhere.status = filters.status;
+  if (filters.category || filters.productId) quoteWhere.lines = { some: { ...(filters.category && { productCategory: filters.category }), ...(filters.productId && { productId: filters.productId }) } };
 
   // Totals
   const quotations = await prisma.quotation.findMany({

@@ -7,6 +7,7 @@ import { PageHeader, Panel, StatusBadge, PrimaryButton, Spinner } from '../../co
 import { useAuth } from '../../lib/auth.js';
 import { api } from '../../lib/api.js';
 import { formatDateTime } from '../../lib/format.js';
+import { UserRole } from '@dealflow360/contracts';
 
 function useDashboard() {
   return useQuery({
@@ -16,10 +17,13 @@ function useDashboard() {
   });
 }
 
+const MANAGERS: UserRole[] = [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS];
+
 export function DashboardPage() {
   const { user } = useAuth();
   const { data, isLoading } = useDashboard();
   const kpi = data?.data;
+  const isManager = MANAGERS.includes(user?.role as UserRole);
 
   return (
     <div>
@@ -27,31 +31,35 @@ export function DashboardPage() {
         title="Sales Dashboard"
         subtitle={`Welcome back, ${user?.name}`}
       >
-        <Link to="/deal-health"><PrimaryButton>Deal Health</PrimaryButton></Link>
-        <Link to="/reports"><PrimaryButton>Reports</PrimaryButton></Link>
+        {isManager && <Link to="/deal-health"><PrimaryButton>Deal Health</PrimaryButton></Link>}
+        {isManager && <Link to="/reports"><PrimaryButton>Reports</PrimaryButton></Link>}
       </PageHeader>
 
       {isLoading ? <Spinner /> : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link to="/approvals" className="block">
-              <Panel title="Pending Approvals">
-                <div className="text-2xl font-bold text-df-nav">{kpi?.pendingApprovals ?? 0}</div>
-                <p className="text-xs text-df-text-dim mt-1">Awaiting review</p>
-              </Panel>
-            </Link>
+            {isManager && (
+              <Link to="/approvals" className="block">
+                <Panel title="Pending Approvals">
+                  <div className="text-2xl font-bold text-df-nav">{kpi?.pendingApprovals ?? 0}</div>
+                  <p className="text-xs text-df-text-dim mt-1">Awaiting review</p>
+                </Panel>
+              </Link>
+            )}
             <Link to="/quotations" className="block">
               <Panel title="Open Quotations">
                 <div className="text-2xl font-bold text-df-nav">{kpi?.openQuotes ?? 0}</div>
                 <p className="text-xs text-df-text-dim mt-1">Draft / Pending / Revision</p>
               </Panel>
             </Link>
-            <Link to="/deal-health" className="block">
-              <Panel title="At-Risk Deals">
-                <div className="text-2xl font-bold text-amber-400">{kpi?.atRiskDeals ?? 0}</div>
-                <p className="text-xs text-df-text-dim mt-1">Medium or High risk</p>
-              </Panel>
-            </Link>
+            {isManager && (
+              <Link to="/deal-health" className="block">
+                <Panel title="At-Risk Deals">
+                  <div className="text-2xl font-bold text-amber-400">{kpi?.atRiskDeals ?? 0}</div>
+                  <p className="text-xs text-df-text-dim mt-1">Medium or High risk</p>
+                </Panel>
+              </Link>
+            )}
           </div>
 
           <Panel title="Recent Activity" className="mt-4">
@@ -83,7 +91,7 @@ export function DashboardPage() {
             )}
           </Panel>
 
-          {/* Quick Links */}
+          {/* Quick Links — role-filtered */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
             <Link to="/quotations" className="block">
               <Panel><div className="text-center text-xs text-df-text-muted hover:text-df-text">📋 Quotations</div></Panel>
@@ -103,3 +111,4 @@ export function DashboardPage() {
     </div>
   );
 }
+

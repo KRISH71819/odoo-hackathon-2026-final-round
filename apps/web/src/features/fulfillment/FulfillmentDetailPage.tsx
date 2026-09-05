@@ -17,6 +17,8 @@ import {
   useAcceptFulfillmentPlan,
   useCreateBackorder,
   useConsolidateBackorder,
+  useOverrideFulfillmentPlan,
+  useWarehouses,
 } from './useFulfillment';
 
 export default function FulfillmentDetailPage() {
@@ -26,7 +28,11 @@ export default function FulfillmentDetailPage() {
   const accept = useAcceptFulfillmentPlan();
   const createBackorder = useCreateBackorder();
   const consolidate = useConsolidateBackorder();
+  const overridePlan = useOverrideFulfillmentPlan();
+  const { data: warehousesData } = useWarehouses();
   const [error, setError] = useState<string | null>(null);
+  const [showOverride, setShowOverride] = useState(false);
+  const [overrideLines, setOverrideLines] = useState<any[]>([]);
 
   const plan = data?.data;
   const hasBackorderLines = plan?.lines?.some((l: any) => l.isBackorder);
@@ -126,16 +132,40 @@ export default function FulfillmentDetailPage() {
         </Panel>
       )}
 
+      {showOverride && plan.status === 'PENDING' && (
+        <Panel title="Manual Override" className="mb-4">
+          <div className="space-y-3">
+            {overrideLines.map((line, index) => (
+              <div key={`${line.quotationLineId}-${index}`} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                <div className="text-xs text-df-text">{plan.quotation.lines.find((q: any) => q.id === line.quotationLineId)?.productName}</div>
+                <select className="bg-df-bg border border-df-border rounded px-2 py-2 text-xs" value={line.warehouseId} onChange={(e) => setOverrideLines(v => v.map((x, i) => i === index ? { ...x, warehouseId: e.target.value } : x))}>
+                  {(warehousesData?.data || []).map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+                <input className="bg-df-bg border border-df-border rounded px-2 py-2 text-xs" type="number" min={0} value={line.allocatedQty} onChange={(e) => setOverrideLines(v => v.map((x, i) => i === index ? { ...x, allocatedQty: Number(e.target.value) } : x))} />
+                <label className="text-xs text-df-text-muted flex items-center gap-2"><input type="checkbox" checked={!!line.isBackorder} onChange={(e) => setOverrideLines(v => v.map((x, i) => i === index ? { ...x, isBackorder: e.target.checked } : x))} /> Backorder</label>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <PrimaryButton disabled={overridePlan.isPending} onClick={() => handleAction(() => overridePlan.mutateAsync({ planId: plan.id, data: { lines: overrideLines } }), 'Override')}>Save Override</PrimaryButton>
+              <SecondaryButton onClick={() => setShowOverride(false)}>Cancel</SecondaryButton>
+            </div>
+          </div>
+        </Panel>
+      )}
+
       {/* Actions */}
       <Panel title="Actions">
         <div className="flex flex-wrap gap-2">
           {plan.status === 'PENDING' && (
+            <>
             <PrimaryButton
               disabled={accept.isPending}
               onClick={() => handleAction(() => accept.mutateAsync(plan.id), 'Accept')}
             >
               {accept.isPending ? 'Accepting…' : 'Accept Plan'}
             </PrimaryButton>
+            <SecondaryButton onClick={() => { setOverrideLines(plan.lines.map((l: any) => ({ quotationLineId: l.quotationLineId, warehouseId: l.warehouseId, allocatedQty: l.allocatedQty, isBackorder: l.isBackorder }))); setShowOverride(true); }}>Manual Override</SecondaryButton>
+            </>
           )}
           {(plan.status === 'ALLOCATED' || plan.status === 'PARTIALLY_ALLOCATED') && hasBackorderLines && (
             <>

@@ -8,6 +8,7 @@ import { UserRole, ApprovalActionInputSchema } from '@dealflow360/contracts';
 import * as governanceService from './governance.service.js';
 
 export const governanceRoutes = Router();
+governanceRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Pending Approvals ────────────────────────────────────────
 
@@ -50,13 +51,13 @@ governanceRoutes.post(
 
       switch (input.action) {
         case 'APPROVE':
-          result = await governanceService.approveQuote(req.params.id as string, req.user!.userId, input.reason);
+          result = await governanceService.approveQuote(req.params.id as string, req.user!.userId, req.user!.role, input.reason);
           break;
         case 'REJECT':
-          result = await governanceService.rejectQuote(req.params.id as string, req.user!.userId, input.reason!);
+          result = await governanceService.rejectQuote(req.params.id as string, req.user!.userId, req.user!.role, input.reason!);
           break;
         case 'RETURN_FOR_REVISION':
-          result = await governanceService.returnQuoteForRevision(req.params.id as string, req.user!.userId, input.reason!);
+          result = await governanceService.returnQuoteForRevision(req.params.id as string, req.user!.userId, req.user!.role, input.reason!);
           break;
       }
 
@@ -83,7 +84,7 @@ governanceRoutes.get('/discount-rules', authMiddleware, async (_req: Request, re
   } catch (err) { next(err); }
 });
 
-governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { maxDiscountBps, description } = req.body;
     const rule = await governanceService.updateDiscountRule(req.params.id as string, maxDiscountBps, description);
@@ -91,7 +92,7 @@ governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole
   } catch (err) { next(err); }
 });
 
-governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { maxDiscountBps, description } = req.body;
     const rule = await governanceService.updateCategoryDiscountRule(req.params.id as string, maxDiscountBps, description);

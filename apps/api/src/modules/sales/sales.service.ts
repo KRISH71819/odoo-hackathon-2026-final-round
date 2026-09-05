@@ -304,7 +304,7 @@ export async function getUpsellSuggestions(quotationId: string) {
 
 // ── Internal Helpers ─────────────────────────────────────────
 
-async function recalculateTotals(quotationId: string) {
+export async function recalculateTotals(quotationId: string) {
   const quote = await prisma.quotation.findUnique({
     where: { id: quotationId },
     include: { lines: true },
@@ -350,7 +350,7 @@ async function recalculateTotals(quotationId: string) {
   });
 }
 
-async function calculateRiskForQuote(quote: Awaited<ReturnType<typeof getQuotationById>>) {
+export async function calculateRiskForQuote(quote: Awaited<ReturnType<typeof getQuotationById>>) {
   const customer = quote.customer;
   const customerTier = (customer as any).tier ?? 'BRONZE';
 
@@ -383,8 +383,26 @@ async function calculateRiskForQuote(quote: Awaited<ReturnType<typeof getQuotati
   const lineTotals = quote.lines.map((l) => ({ lineId: l.id, afterDiscount: l.afterDiscount }));
   const risk = calculateBlendedRisk({ lineResults, lineTotals });
 
+  // Order-level discount is governed by the customer-tier ceiling as well.
+  // This keeps submit and customer counter-offer on the same deterministic engine.
+  const orderDiscountExcessBps = Math.max(0, quote.orderDiscountBps - tierLimit);
+  const blendedRiskBps = risk.blendedRiskBps + orderDiscountExcessBps;
+  const riskLevel = blendedRiskBps === 0
+    ? RiskLevel.NONE
+    : blendedRiskBps <= 500
+      ? RiskLevel.LOW
+      : blendedRiskBps <= 1500
+        ? RiskLevel.MEDIUM
+        : RiskLevel.HIGH;
+
   return {
     ...risk,
+    blendedRiskBps,
+    riskLevel,
+    reasons: [
+      ...risk.reasons,
+      ...(orderDiscountExcessBps > 0 ? [`Order discount exceeds customer-tier limit by ${orderDiscountExcessBps} bps`] : []),
+    ],
     lineResults,
   };
 }

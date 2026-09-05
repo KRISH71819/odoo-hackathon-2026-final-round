@@ -6,21 +6,34 @@ import { useAuth } from '../../lib/auth.js';
 import { Button, Input, NoticeStrip } from '../../components/ui.js';
 
 export function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, signup, logout, user, isAuthenticated, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [name, setName] = useState('');
 
   if (isLoading) return null;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthenticated && user?.role !== 'CUSTOMER') return <Navigate to="/" replace />;
+  if (isAuthenticated && user?.role === 'CUSTOMER') {
+    return (
+      <div className="min-h-screen bg-df-bg flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <NoticeStrip variant="warning">Customer accounts use the secure quotation portal link sent by the sales team. Internal workspace access is blocked.</NoticeStrip>
+          <Button className="w-full mt-4" onClick={logout}>Back to Login</Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
     try {
-      await login(email, password);
+      if (mode === 'signup') await signup(email, password, name);
+      else await login(email, password);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -61,13 +74,12 @@ export function LoginPage() {
         {/* Login Form */}
         <div className="bg-df-surface border border-df-border rounded-lg p-6">
           <div className="flex gap-2 mb-6">
-            <button className="flex-1 py-2 text-sm font-medium text-white bg-df-nav rounded">Login</button>
-            <button className="flex-1 py-2 text-sm font-medium text-df-text-muted bg-df-bg border border-df-border rounded">
-              Sign Up
-            </button>
+            <button type="button" onClick={() => setMode('login')} className={`flex-1 py-2 text-sm font-medium rounded ${mode === 'login' ? 'text-white bg-df-nav' : 'text-df-text-muted bg-df-bg border border-df-border'}`}>Login</button>
+            <button type="button" onClick={() => setMode('signup')} className={`flex-1 py-2 text-sm font-medium rounded ${mode === 'signup' ? 'text-white bg-df-nav' : 'text-df-text-muted bg-df-bg border border-df-border'}`}>Sign Up</button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'signup' && <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />}
             <Input
               label="Email"
               type="email"
@@ -90,7 +102,7 @@ export function LoginPage() {
             )}
 
             <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? 'Logging in...' : 'Login'}
+              {submitting ? 'Please wait...' : mode === 'signup' ? 'Create Sales Rep Account' : 'Login'}
             </Button>
           </form>
         </div>

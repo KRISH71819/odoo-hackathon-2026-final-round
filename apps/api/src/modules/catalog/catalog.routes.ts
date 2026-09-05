@@ -16,6 +16,7 @@ import {
 import * as catalogService from './catalog.service.js';
 
 export const catalogRoutes = Router();
+catalogRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Products ─────────────────────────────────────────────────
 

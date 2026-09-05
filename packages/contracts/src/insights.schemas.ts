@@ -16,6 +16,7 @@ export const ReportFilterSchema = z.object({
   dateTo: z.string().optional(),
   salesRepId: z.string().optional(),
   category: z.string().optional(),
+  productId: z.string().optional(),
   status: z.string().optional(),
 });
 

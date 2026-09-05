@@ -16,6 +16,7 @@ import * as billingService from './billing.service.js';
 export const billingRoutes = Router();
 
 billingRoutes.use(authMiddleware);
+billingRoutes.use(requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Subscription Plans ────────────────────────────────────────
 

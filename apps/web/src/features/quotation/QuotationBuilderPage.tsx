@@ -3,10 +3,11 @@
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuotation, useAddLine, useUpdateLine, useRemoveLine, useSubmitQuote, useUpsellSuggestions, useAuditTrail } from './useQuotations';
+import { useQuotation, useAddLine, useUpdateQuotation, useRemoveLine, useSubmitQuote, useUpsellSuggestions, useAuditTrail } from './useQuotations';
 import { useProducts } from '../catalog/useCatalog';
 import { PageHeader, StatusBadge, PrimaryButton, SecondaryButton, DangerButton, SuccessButton, Panel, NoticeStrip, Spinner, Input, Select, formatCents, formatBps } from '../../components/ui';
 import { api } from '../../lib/api';
+import { useSuggestFulfillmentPlan, useQuotationFulfillmentPlan } from '../fulfillment/useFulfillment';
 
 export default function QuotationBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,13 +18,18 @@ export default function QuotationBuilderPage() {
   const { data: auditData } = useAuditTrail(id!);
 
   const addLine = useAddLine();
-  const updateLine = useUpdateLine();
+  const updateQuotation = useUpdateQuotation();
   const removeLine = useRemoveLine();
   const submitQuote = useSubmitQuote();
+  const suggestFulfillment = useSuggestFulfillmentPlan();
+  const { data: existingPlanData } = useQuotationFulfillmentPlan(id!);
 
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [lineDiscount, setLineDiscount] = useState(0);
+  const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
+  const [orderDiscount, setOrderDiscount] = useState<number | null>(null);
 
   if (isLoading) return <Spinner />;
 
@@ -31,7 +37,7 @@ export default function QuotationBuilderPage() {
   if (!quote) return <div className="text-center text-charcoal-400 py-12">Quotation not found</div>;
 
   const products = productsData?.data || [];
-  const suggestions = suggestionsData?.data || [];
+  const suggestions = (suggestionsData?.data || []).filter((s: any) => !dismissedSuggestions.includes(s.id));
   const auditTrail = auditData?.data || [];
   const isEditable = quote.status === 'DRAFT' || quote.status === 'REVISION';
 
@@ -39,11 +45,12 @@ export default function QuotationBuilderPage() {
     if (!selectedProductId) return;
     await addLine.mutateAsync({
       quotationId: id!,
-      data: { productId: selectedProductId, quantity, lineDiscountBps: lineDiscount * 100 },
+      data: { productId: selectedProductId, variantId: selectedVariantId || undefined, quantity, lineDiscountBps: lineDiscount * 100 },
     });
     setSelectedProductId('');
     setQuantity(1);
     setLineDiscount(0);
+    setSelectedVariantId('');
   };
 
   const handleSubmit = async () => {
@@ -53,11 +60,7 @@ export default function QuotationBuilderPage() {
 
   const handleOpenPortal = async () => {
     try {
-      const res = await api.post<any>('/auth/portal-token', {
-        customerId: quote.customerId,
-        quotationId: quote.id,
-        expiresInHours: 72,
-      });
+      const res = await api.post<any>(`/portal/token/${quote.id}`);
       const token = res.data?.token;
       if (token) {
         window.open(`/portal/${token}`, '_blank');
@@ -67,11 +70,28 @@ export default function QuotationBuilderPage() {
     }
   };
 
+
+  const handleGenerateFulfillment = async () => {
+    try {
+      const res = await suggestFulfillment.mutateAsync(quote.id);
+      const planId = res?.data?.id;
+      if (planId) navigate(`/fulfillment/${planId}`);
+    } catch (e: any) {
+      alert('Could not generate fulfillment plan: ' + (e?.message || 'Error'));
+    }
+  };
   return (
     <div>
       <PageHeader title={quote.title}>
         <StatusBadge status={quote.status} className="text-sm px-3 py-1" />
-        <SecondaryButton onClick={handleOpenPortal}>🔗 Customer Portal</SecondaryButton>
+        {(quote.status === 'APPROVED' || quote.status === 'FULFILLMENT_READY' || quote.status === 'SENT_TO_CUSTOMER') && (
+          <SecondaryButton onClick={handleOpenPortal}>🔗 Send / Open Customer Portal</SecondaryButton>
+        )}
+        {(quote.status === 'APPROVED' || quote.status === 'FULFILLMENT_READY') && (
+          <PrimaryButton onClick={handleGenerateFulfillment} disabled={suggestFulfillment.isPending}>
+            {existingPlanData?.data ? 'Regenerate Fulfillment Plan' : 'Generate Fulfillment Plan'}
+          </PrimaryButton>
+        )}
         <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
       </PageHeader>
 
@@ -165,6 +185,16 @@ export default function QuotationBuilderPage() {
                     ))}
                   </Select>
                 </div>
+                {selectedProductId && (products.find((p: any) => p.id === selectedProductId)?.variants?.length ?? 0) > 0 && (
+                  <div className="w-40">
+                    <Select label="Variant" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
+                      <option value="">Base</option>
+                      {(products.find((p: any) => p.id === selectedProductId)?.variants || []).map((v: any) => (
+                        <option key={v.id} value={v.id}>{v.attribute}: {v.value} (+{formatCents(v.extraPrice)})</option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
                 <div className="w-20">
                   <Input label="Qty" type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} />
                 </div>
@@ -244,6 +274,15 @@ export default function QuotationBuilderPage() {
           {/* Actions */}
           {isEditable && quote.lines.length > 0 && (
             <Panel>
+              <div className="mb-3">
+                <Input
+                  label="Order Discount %"
+                  type="number" min={0} max={100} step={0.1}
+                  value={orderDiscount ?? ((quote.orderDiscountBps || 0) / 100)}
+                  onChange={(e) => setOrderDiscount(parseFloat(e.target.value) || 0)}
+                  onBlur={() => updateQuotation.mutate({ id: quote.id, data: { orderDiscountBps: Math.round((orderDiscount ?? 0) * 100) } })}
+                />
+              </div>
               <SuccessButton className="w-full" onClick={handleSubmit} disabled={submitQuote.isPending}>
                 Submit for Approval
               </SuccessButton>
@@ -272,7 +311,10 @@ export default function QuotationBuilderPage() {
                         >
                           Add
                         </button>
-                        <button className="text-xs text-charcoal-500 px-2 py-1 hover:text-charcoal-300">
+                        <button
+                          onClick={() => setDismissedSuggestions((prev) => [...prev, s.id])}
+                          className="text-xs text-charcoal-500 px-2 py-1 hover:text-charcoal-300"
+                        >
                           Dismiss
                         </button>
                       </div>

@@ -383,3 +383,24 @@ export async function getWarehouses() {
     orderBy: { shippingCostWeight: 'asc' },
   });
 }
+
+export async function createWarehouse(input: { name: string; code: string; address?: string; shippingCostWeight?: number }) {
+  return prisma.warehouse.create({
+    data: {
+      name: input.name, code: input.code, address: input.address ?? '',
+      shippingCostWeight: input.shippingCostWeight ?? 1, isActive: true,
+    },
+  });
+}
+
+export async function upsertWarehouseStock(warehouseId: string, productId: string, quantity: number) {
+  const warehouse = await prisma.warehouse.findUnique({ where: { id: warehouseId } });
+  if (!warehouse) throw new AppError(404, 'NOT_FOUND', 'Warehouse not found');
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new AppError(404, 'NOT_FOUND', 'Product not found');
+  return prisma.stock.upsert({
+    where: { warehouseId_productId: { warehouseId, productId } },
+    update: { quantity },
+    create: { warehouseId, productId, quantity },
+  });
+}

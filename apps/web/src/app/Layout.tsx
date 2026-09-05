@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth.js';
 import { Navbar } from '../components/Navbar.js';
 
 export function AppLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -16,7 +16,7 @@ export function AppLayout() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || user?.role === 'CUSTOMER') {
     return <Navigate to="/login" replace />;
   }
 

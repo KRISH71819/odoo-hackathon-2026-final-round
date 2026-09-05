@@ -1,7 +1,7 @@
 // ── DealFlow360 – Auth Routes ──
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { LoginRequestSchema, SignupRequestSchema, PortalTokenRequestSchema } from '@dealflow360/contracts';
+import { LoginRequestSchema, SignupRequestSchema } from '@dealflow360/contracts';
 import { validateBody } from '../../middleware/validate.middleware.js';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { requireRole } from '../../middleware/rbac.middleware.js';
@@ -31,8 +31,9 @@ authRoutes.post(
   validateBody(SignupRequestSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password, name, role } = req.body;
-      const result = await authService.signup(email, password, name, role);
+      const { email, password, name } = req.body;
+      // Public signup is always a Sales Rep. Privileged roles are admin-controlled/seeded.
+      const result = await authService.signup(email, password, name, 'SALES_REP');
       sendCreated(res, result);
     } catch (err) {
       next(err);
@@ -54,27 +55,11 @@ authRoutes.get(
   },
 );
 
-// POST /api/auth/portal-token (admin/manager only)
-authRoutes.post(
-  '/portal-token',
-  authMiddleware,
-  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
-  validateBody(PortalTokenRequestSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { customerId, quotationId, expiresInHours } = req.body;
-      const result = await authService.generatePortalToken(customerId, quotationId, expiresInHours);
-      sendCreated(res, result);
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
 // GET /api/auth/customers (requires auth)
 authRoutes.get(
   '/customers',
   authMiddleware,
+  requireRole('ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const { prisma } = await import('../../shared/prisma.js');

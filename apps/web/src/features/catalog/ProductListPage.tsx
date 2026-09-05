@@ -1,13 +1,16 @@
 // ── Product List Page ────────────────────────────────────────
 
 import React, { useState } from 'react';
-import { useProducts } from './useCatalog';
+import { useProducts, useCreateProduct } from './useCatalog';
 import { PageHeader, StatusBadge, PrimaryButton, Input, Select, Spinner, Panel, formatCents, formatBps } from '../../components/ui';
 import { ProductCategory } from '@dealflow360/contracts';
 
 export default function ProductListPage() {
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ name: '', sku: '', category: ProductCategory.HARDWARE, unitPrice: 0, costPrice: 0, taxRate: 0, description: '' });
+  const createProduct = useCreateProduct();
 
   const params: Record<string, string> = {};
   if (category) params.category = category;
@@ -19,8 +22,25 @@ export default function ProductListPage() {
   return (
     <div>
       <PageHeader title="Products">
-        <PrimaryButton>+ New Product</PrimaryButton>
+        <PrimaryButton onClick={() => setShowCreate(true)}>+ New Product</PrimaryButton>
       </PageHeader>
+
+      {showCreate && (
+        <Panel title="New Product" className="mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Input label="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            <Input label="SKU" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
+            <Select label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value as ProductCategory })}>{Object.values(ProductCategory).map(c => <option key={c} value={c}>{c}</option>)}</Select>
+            <Input label="Price (cents)" type="number" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: Number(e.target.value) })} />
+            <Input label="Cost (cents)" type="number" value={form.costPrice} onChange={e => setForm({ ...form, costPrice: Number(e.target.value) })} />
+            <Input label="Tax (bps)" type="number" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: Number(e.target.value) })} />
+          </div>
+          <div className="flex gap-2 mt-3">
+            <PrimaryButton disabled={createProduct.isPending || !form.name || !form.sku} onClick={async () => { await createProduct.mutateAsync({ ...form, unit: 'unit', currencyCode: 'USD', isActive: true }); setShowCreate(false); }}>Create</PrimaryButton>
+            <button className="text-xs text-df-text-muted" onClick={() => setShowCreate(false)}>Cancel</button>
+          </div>
+        </Panel>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">

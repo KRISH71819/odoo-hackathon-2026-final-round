@@ -5,15 +5,15 @@
 
 import prisma from '../../shared/prisma.js';
 import { AppError } from '../../shared/errors.js';
-import { QuotationStatus, AuditAction, RiskLevel } from '@dealflow360/contracts';
+import { QuotationStatus, AuditAction } from '@dealflow360/contracts';
 import type {
   AddNegotiationCommentInput,
   SubmitCounterOfferInput,
 } from '@dealflow360/contracts';
-import { calculateLinePolicy, type DiscountLimits } from '../governance/calculateLinePolicy.js';
-import { calculateBlendedRisk } from '../governance/calculateBlendedRisk.js';
 import { resolveApprovalChain } from '../governance/resolveApprovalChain.js';
 import { generateBillingSchedule } from '../billing/billing.service.js';
+import { recalculateTotals, calculateRiskForQuote, getQuotationById } from '../sales/sales.service.js';
+import { createInvoice } from '../insights/insights.service.js';
 
 // ── Read ─────────────────────────────────────────────────────
 
@@ -129,70 +129,25 @@ export async function submitCounterOffer(
     throw new AppError(409, 'INVALID_STATE', `Counter-offer not allowed in status ${quote.status}`);
   }
 
-  // Get full quote with lines for risk calculation
-  const fullQuote = await prisma.quotation.findUnique({
+  let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
+  if (!thread) thread = await prisma.negotiationThread.create({ data: { quotationId } });
+
+  // Apply the commercial change first, then reuse the exact Phase-2 pricing/risk engine.
+  await prisma.quotation.update({
     where: { id: quotationId },
-    include: {
-      customer: true,
-      lines: true,
+    data: {
+      orderDiscountBps: input.proposedOrderDiscountBps,
+      orderDiscount: input.proposedOrderDiscountBps / 100,
+      version: { increment: 1 },
     },
   });
-  if (!fullQuote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
-
-  const customerTier = (fullQuote.customer as any).tier ?? 'BRONZE';
-
-  // Load discount rules (same as Phase 2 submitQuote)
-  const tierRule = await prisma.discountRule.findFirst({ where: { customerTier } });
-  const categoryRules = await prisma.categoryDiscountRule.findMany();
-  const categoryRuleMap = new Map(
-    categoryRules.map((r) => [r.category, r.maxDiscountBps || Math.round(r.maxDiscountPercent * 100)]),
-  );
-  const tierLimit = tierRule?.maxDiscountBps || (tierRule?.maxDiscountPercent ? Math.round(tierRule.maxDiscountPercent * 100) : 10000);
-
-  // Re-evaluate lines with the new order-level discount from counter-offer
-  const lineResults = fullQuote.lines.map((line) => {
-    const limits: DiscountLimits = {
-      tierLimitBps: tierLimit,
-      categoryLimitBps: categoryRuleMap.get(line.productCategory) ?? 10000,
-    };
-    return calculateLinePolicy(
-      { lineId: line.id, productName: line.productName, lineDiscountBps: line.discountBps, category: line.productCategory as any },
-      limits,
-    );
-  });
-
-  // For counter-offer, the proposed order discount also contributes to risk
-  // by treating the entire order as having the proposed discount applied
-  const orderDiscountExcess = Math.max(0, input.proposedOrderDiscountBps - tierLimit);
-  const lineTotals = fullQuote.lines.map((l) => ({ lineId: l.id, afterDiscount: l.afterDiscount }));
-
-  const riskResult = calculateBlendedRisk({ lineResults, lineTotals });
-
-  // Additional risk if order-level discount exceeds tier limit
-  const effectiveRiskBps = riskResult.blendedRiskBps + orderDiscountExcess;
-  const effectiveRiskLevel = bpsToRiskLevel(effectiveRiskBps);
-
+  await recalculateTotals(quotationId);
+  const recalculated = await getQuotationById(quotationId);
+  const riskResult = await calculateRiskForQuote(recalculated);
   const thresholds = await prisma.approvalThreshold.findMany();
-  const requiredApprovers = resolveApprovalChain(effectiveRiskLevel, thresholds);
-
-  // Thread and comment for the counter-offer message
-  let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
-  if (!thread) {
-    thread = await prisma.negotiationThread.create({ data: { quotationId } });
-  }
+  const requiredApprovers = resolveApprovalChain(riskResult.riskLevel, thresholds);
 
   await prisma.$transaction(async (tx) => {
-    // Update order discount on quotation
-    await tx.quotation.update({
-      where: { id: quotationId },
-      data: {
-        orderDiscountBps: input.proposedOrderDiscountBps,
-        orderDiscount: input.proposedOrderDiscountBps / 100,
-        version: { increment: 1 },
-      },
-    });
-
-    // Add counter-offer comment if message provided
     if (input.message) {
       await tx.negotiationComment.create({
         data: {
@@ -205,34 +160,28 @@ export async function submitCounterOffer(
       });
     }
 
-    if (requiredApprovers.length > 0) {
-      // Counter-offer exceeds threshold → re-enter approval
-      // Delete any old pending approvals, create new ones
-      await tx.approvalRequest.deleteMany({ where: { quotationId } });
-      for (let i = 0; i < requiredApprovers.length; i++) {
-        await tx.approvalRequest.create({
-          data: {
-            quotationId,
-            step: i + 1,
-            role: requiredApprovers[i]!,
-            status: 'PENDING',
-          },
-        });
-      }
-      const newStatus = requiredApprovers[0] === 'SALES_MANAGER'
-        ? QuotationStatus.PENDING_MANAGER
-        : QuotationStatus.PENDING_FINANCE;
-      await tx.quotation.update({
-        where: { id: quotationId },
-        data: { status: newStatus, version: { increment: 1 } },
-      });
-    } else {
-      // Below threshold → proceed to UNDER_NEGOTIATION (confirmed when customer presses confirm)
-      await tx.quotation.update({
-        where: { id: quotationId },
-        data: { status: QuotationStatus.UNDER_NEGOTIATION, version: { increment: 1 } },
+    await tx.approvalRequest.deleteMany({ where: { quotationId } });
+    for (let i = 0; i < requiredApprovers.length; i++) {
+      await tx.approvalRequest.create({
+        data: { quotationId, step: i + 1, role: requiredApprovers[i]!, status: 'PENDING' },
       });
     }
+
+    const newStatus = requiredApprovers.length === 0
+      ? QuotationStatus.UNDER_NEGOTIATION
+      : requiredApprovers[0] === 'SALES_MANAGER'
+        ? QuotationStatus.PENDING_MANAGER
+        : QuotationStatus.PENDING_FINANCE;
+
+    await tx.quotation.update({
+      where: { id: quotationId },
+      data: {
+        status: newStatus,
+        riskLevel: riskResult.riskLevel,
+        riskScore: riskResult.blendedRiskBps,
+        version: { increment: 1 },
+      },
+    });
 
     await tx.auditLog.create({
       data: {
@@ -241,8 +190,10 @@ export async function submitCounterOffer(
         action: AuditAction.COUNTER_OFFER_SUBMITTED,
         details: JSON.stringify({
           proposedOrderDiscountBps: input.proposedOrderDiscountBps,
-          effectiveRiskLevel,
-          effectiveRiskBps,
+          newTotal: recalculated.total,
+          newMarginPercent: recalculated.marginPercent,
+          riskLevel: riskResult.riskLevel,
+          riskScore: riskResult.blendedRiskBps,
           requiredApprovers,
           reEntersApproval: requiredApprovers.length > 0,
         }),
@@ -259,8 +210,8 @@ export async function submitCounterOffer(
 export async function confirmQuotation(quotationId: string, customerId: string) {
   const quote = await getPortalQuotation(quotationId, customerId);
 
-  // Idempotent: already confirmed
-  if (quote.status === QuotationStatus.CONFIRMED) {
+  // Idempotent: confirmation may already have progressed into billing/payment.
+  if ([QuotationStatus.CONFIRMED, QuotationStatus.BILLED, QuotationStatus.PAID].includes(quote.status as QuotationStatus)) {
     return quote;
   }
 
@@ -289,8 +240,9 @@ export async function confirmQuotation(quotationId: string, customerId: string) 
     });
   });
 
-  // Generate billing schedule for recurring lines
+  // Generate recurring schedules and the one-time invoice through existing services.
   await generateBillingSchedule(quotationId, customerId);
+  await createInvoice(quotationId, customerId);
 
   return getPortalQuotation(quotationId, customerId);
 }
@@ -359,13 +311,4 @@ export async function generatePortalToken(quotationId: string, userId: string) {
   });
 
   return { token: tokenRecord.token, expiresAt: tokenRecord.expiresAt };
-}
-
-// ── Internal Helper ──────────────────────────────────────
-
-function bpsToRiskLevel(bps: number): RiskLevel {
-  if (bps === 0) return RiskLevel.NONE;
-  if (bps <= 500) return RiskLevel.LOW;
-  if (bps <= 1500) return RiskLevel.MEDIUM;
-  return RiskLevel.HIGH;
 }

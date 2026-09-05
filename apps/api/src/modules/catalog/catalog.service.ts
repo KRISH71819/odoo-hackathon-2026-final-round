@@ -43,17 +43,16 @@ export async function getProductById(id: string) {
 }
 
 export async function createProduct(input: CreateProductInput) {
+  const { unit: _unit, currencyCode: _currencyCode, ...data } = input as any;
   return prisma.product.create({
-    data: {
-      ...input,
-      type: (input as any).type ?? 'HARDWARE',
-    },
+    data: { ...data, type: data.type ?? 'HARDWARE' },
   });
 }
 
 export async function updateProduct(id: string, input: UpdateProductInput) {
   await getProductById(id); // ensure exists
-  return prisma.product.update({ where: { id }, data: input });
+  const { unit: _unit, currencyCode: _currencyCode, ...data } = input as any;
+  return prisma.product.update({ where: { id }, data });
 }
 
 // ── Price Lists ──────────────────────────────────────────────
@@ -66,7 +65,8 @@ export async function getPriceLists() {
 }
 
 export async function createPriceList(input: CreatePriceListInput) {
-  return prisma.priceList.create({ data: input });
+  const { currencyCode, ...rest } = input as any;
+  return prisma.priceList.create({ data: { ...rest, currency: currencyCode ?? 'USD' } });
 }
 
 export async function addPriceListItem(priceListId: string, input: CreatePriceListItemInput) {

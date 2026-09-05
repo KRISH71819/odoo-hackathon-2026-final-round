@@ -13,14 +13,14 @@ export default function DealHealthPage() {
   const health = data?.data;
   if (!health) return <NoticeStrip variant="danger">Failed to load deal health data</NoticeStrip>;
 
-  const { stalledDeals, discountAnomalies, deliverySlippage } = health;
+  const { stalledDeals, discountAnomalies, deliverySlippage, approvalAging = [] } = health;
 
   return (
     <div>
       <PageHeader title="Deal Health" subtitle="Monitor stalled deals, discount anomalies, and delivery slippage" />
 
       {/* KPI Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <Panel>
           <div className="text-center">
             <div className="text-2xl font-bold text-amber-400">{stalledDeals?.length ?? 0}</div>
@@ -37,6 +37,12 @@ export default function DealHealthPage() {
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-400">{deliverySlippage?.length ?? 0}</div>
             <div className="text-xs text-df-text-muted mt-1">Delivery Slippage</div>
+          </div>
+        </Panel>
+        <Panel>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-violet-400">{approvalAging?.length ?? 0}</div>
+            <div className="text-xs text-df-text-muted mt-1">Aged Approvals</div>
           </div>
         </Panel>
       </div>
@@ -117,6 +123,18 @@ export default function DealHealthPage() {
               </div>
             ))}
           </div>
+        )}
+      </Panel>
+
+      <Panel title="Approval Aging" className="mb-4">
+        {approvalAging.length === 0 ? <p className="text-xs text-df-text-muted">No aged approvals ✓</p> : (
+          <div className="space-y-2">{approvalAging.map((a: any) => (
+            <div key={a.id} className="flex items-center justify-between border-b border-df-border/30 py-2 text-xs">
+              <Link to={`/quotations/${a.quotationId}`} className="text-df-nav hover:underline">{a.quotation?.number}</Link>
+              <span className="text-df-text-muted">{a.role.replace(/_/g, ' ')} pending since {formatDate(a.createdAt)}</span>
+              <PrimaryButton onClick={() => nudge.mutate(a.quotationId)} disabled={nudge.isPending}>Nudge</PrimaryButton>
+            </div>
+          ))}</div>
         )}
       </Panel>
 

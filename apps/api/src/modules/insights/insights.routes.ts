@@ -15,6 +15,7 @@ import * as insightsService from './insights.service.js';
 export const insightsRoutes = Router();
 
 insightsRoutes.use(authMiddleware);
+insightsRoutes.use(requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Dashboard KPIs ────────────────────────────────────────────
 

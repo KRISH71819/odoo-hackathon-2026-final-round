@@ -3,6 +3,9 @@ import React, { useState, useCallback } from 'react';
 import { PageHeader, Panel, Input, Select, PrimaryButton, SecondaryButton, Spinner, StatusBadge } from '../../components/ui.js';
 import { formatCurrency } from '../../lib/format.js';
 import { useReports } from './useReports.js';
+import { api } from '../../lib/api.js';
+import { ProductCategory } from '@dealflow360/contracts';
+import { useProducts } from '../catalog/useCatalog.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -18,41 +21,45 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState('');
   const [salesRepId, setSalesRepId] = useState('');
   const [status, setStatus] = useState('');
+  const [category, setCategory] = useState('');
+  const [productId, setProductId] = useState('');
+  const { data: productsData } = useProducts();
+  const [salesReps, setSalesReps] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    api.get<any>('/quotations?page=1&pageSize=100').then((res) => {
+      const seen = new Map<string, any>();
+      for (const q of res.data || []) if (q.salesRep) seen.set(q.salesRep.id, q.salesRep);
+      setSalesReps([...seen.values()]);
+    }).catch(() => setSalesReps([]));
+  }, []);
 
   const filters: Record<string, string> = {};
   if (dateFrom) filters.dateFrom = new Date(dateFrom).toISOString();
   if (dateTo) filters.dateTo = new Date(dateTo).toISOString();
   if (salesRepId) filters.salesRepId = salesRepId;
   if (status) filters.status = status;
+  if (category) filters.category = category;
+  if (productId) filters.productId = productId;
 
   const { data, isLoading } = useReports(filters);
   const report = data?.data;
 
-  const handleExportCSV = useCallback(() => {
+  const handleExportXLSX = useCallback(async () => {
     if (!report) return;
-    const rows = [
-      ['Metric', 'Value'],
-      ['Total Revenue', (report.totalRevenue / 100).toFixed(2)],
-      ['Open Quotes', report.openQuotes],
-      ['Total Quotes', report.totalQuotes],
-      ['Avg Discount (BPS)', report.avgDiscountBps],
-      ['Avg Cycle (Days)', report.avgCycleDays],
-      '',
-      ['Status', 'Count'],
-      ...Object.entries(report.statusCounts || {}).map(([k, v]) => [k, v]),
-      '',
-      ['Category', 'Revenue'],
-      ...Object.entries(report.categoryCounts || {}).map(([k, v]) => [k, ((v as number) / 100).toFixed(2)]),
-      '',
-      ['Rep', 'Revenue', 'Deals'],
-      ...((report.topReps || []) as any[]).map((r: any) => [r.name, (r.total / 100).toFixed(2), r.count]),
+    const XLSX = await import('xlsx');
+    const summary = [
+      { Metric: 'Total Revenue', Value: (report.totalRevenue / 100).toFixed(2) },
+      { Metric: 'Open Quotes', Value: report.openQuotes },
+      { Metric: 'Total Quotes', Value: report.totalQuotes },
+      { Metric: 'Avg Discount (BPS)', Value: report.avgDiscountBps },
+      { Metric: 'Avg Cycle (Days)', Value: report.avgCycleDays },
     ];
-    const csv = rows.map(r => Array.isArray(r) ? r.join(',') : '').join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'dealflow360-report.csv'; a.click();
-    URL.revokeObjectURL(url);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Summary');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.entries(report.statusCounts || {}).map(([Status, Count]) => ({ Status, Count }))), 'Statuses');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((report.topReps || []).map((r: any) => ({ Rep: r.name, Revenue: r.total / 100, Deals: r.count }))), 'Sales Reps');
+    XLSX.writeFile(wb, 'dealflow360-report.xlsx');
   }, [report]);
 
   const handleExportPDF = useCallback(async () => {
@@ -102,16 +109,19 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader title="Reports & Analytics" subtitle="Sales performance metrics with filtering and export">
-        <SecondaryButton onClick={handleExportCSV} disabled={!report}>Export CSV</SecondaryButton>
+        <SecondaryButton onClick={handleExportXLSX} disabled={!report}>Export XLSX</SecondaryButton>
         <PrimaryButton onClick={handleExportPDF} disabled={!report}>Export PDF</PrimaryButton>
       </PageHeader>
 
       {/* Filter Bar */}
       <Panel className="mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Input label="From" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
           <Input label="To" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-          <Input label="Sales Rep ID" value={salesRepId} onChange={e => setSalesRepId(e.target.value)} placeholder="Optional" />
+          <Select label="Sales Rep" value={salesRepId} onChange={e => setSalesRepId(e.target.value)}>
+            <option value="">All</option>
+            {salesReps.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </Select>
           <Select label="Status" value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">All</option>
             <option value="DRAFT">Draft</option>
@@ -120,6 +130,14 @@ export default function ReportsPage() {
             <option value="BILLED">Billed</option>
             <option value="PAID">Paid</option>
             <option value="REJECTED">Rejected</option>
+          </Select>
+          <Select label="Category" value={category} onChange={e => setCategory(e.target.value)}>
+            <option value="">All</option>
+            {Object.values(ProductCategory).map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+          <Select label="Product" value={productId} onChange={e => setProductId(e.target.value)}>
+            <option value="">All</option>
+            {(productsData?.data || []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </div>
       </Panel>
