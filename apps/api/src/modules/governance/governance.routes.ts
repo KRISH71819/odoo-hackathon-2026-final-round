@@ -8,7 +8,7 @@ import { UserRole, ApprovalActionInputSchema } from '@dealflow360/contracts';
 import * as governanceService from './governance.service.js';
 
 export const governanceRoutes = Router();
-governanceRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
+governanceRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
 
 // ── Pending Approvals ────────────────────────────────────────
 

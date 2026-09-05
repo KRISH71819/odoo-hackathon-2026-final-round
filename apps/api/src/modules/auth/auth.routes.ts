@@ -59,7 +59,7 @@ authRoutes.get(
 authRoutes.get(
   '/customers',
   authMiddleware,
-  requireRole('ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS'),
+  requireRole('ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS', 'CUSTOMER'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const customers = await authService.getCustomers();
