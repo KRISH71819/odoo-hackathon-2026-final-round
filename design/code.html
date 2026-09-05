@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DealFlow360 — Modern Enterprise Quotation</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": {
+              DEFAULT: "#E8553D",
+              hover: "#D4432C",
+              light: "#FFF1F0",
+              50: "#FFF5F4",
+              100: "#FFE8E5",
+              500: "#E8553D",
+              600: "#D3432B",
+            },
+            "amber": {
+              50: "#FFFBEB",
+              100: "#FEF3C7",
+              500: "#F59E0B",
+              600: "#D97706",
+              gold: "#F5A623",
+            },
+            "canvas": "#F9FAFB",
+            "card-surface": "#FFFFFF",
+            "border-subtle": "#E5E7EB",
+            "border-strong": "#D1D5DB",
+            "slate-text": {
+              title: "#111827",
+              body: "#374151",
+              muted: "#6B7280",
+              light: "#9CA3AF"
+            }
+          },
+          fontFamily: {
+            display: ["Public Sans", "sans-serif"],
+            sans: ["Public Sans", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+            lg: "0.75rem",
+            xl: "0.875rem",
+            "2xl": "1rem",
+            full: "9999px"
+          },
+          boxShadow: {
+            'subtle': '0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.02)',
+            'card': '0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #F9FAFB;
+        color: #111827;
+        font-family: 'Public Sans', sans-serif;
+      }
+      body { overscroll-behavior: none; }
+    }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="bg-[#F9FAFB] text-slate-text-body antialiased min-h-screen font-sans">
+<!-- Modern Clean Editorial Navigation Bar -->
+<header class="fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 backdrop-blur-md border-b border-border-subtle shadow-sm">
+<div class="max-w-[1360px] h-full mx-auto px-6 flex items-center justify-between">
+<!-- Logo Branding -->
+<div class="flex items-center gap-3 shrink-0">
+<div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-sm shadow-primary/20">
+<span class="material-symbols-outlined text-[19px]">donut_large</span>
+</div>
+<span class="font-bold text-[16px] text-slate-text-title tracking-tight flex items-center gap-1.5">
+          DealFlow<span class="text-primary font-bold">360</span>
+</span>
+</div>
+<!-- Navigation Tabs -->
+<nav class="hidden md:flex items-center h-full space-x-1 select-none mx-6">
+<a aria-current="page" class="h-full flex items-center px-3.5 text-[13px] font-semibold text-primary border-b-2 border-primary tracking-tight transition-all" data-path="quotations" href="#">Quotations</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="pipeline" href="#">Pipeline</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="fulfillment" href="#">Fulfillment</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="subscriptions" href="#">Subscriptions</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="invoices" href="#">Invoices</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="approvals" href="#">Approvals</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="reports" href="#">Reports</a>
+<a class="h-full flex items-center px-3.5 text-[13px] font-medium text-slate-text-muted hover:text-slate-text-title hover:border-b-2 hover:border-slate-300 transition-all tracking-tight" data-path="products" href="#">Products</a>
+</nav>
+<!-- Right Utility Actions & User -->
+<div class="flex items-center gap-2.5 shrink-0">
+<button class="h-8 px-3 rounded-lg border border-border-subtle bg-white text-slate-text-body text-[12px] font-medium hover:bg-slate-50 hover:border-border-strong hover:text-slate-text-title transition-all" type="button">Reload Data</button>
+<button class="h-8 px-3 rounded-lg border border-border-subtle bg-white text-slate-text-body text-[12px] font-medium hover:bg-slate-50 hover:border-border-strong hover:text-slate-text-title transition-all" type="button">Back-end</button>
+<button class="h-8 px-3 rounded-lg border border-border-subtle bg-white text-slate-text-body text-[12px] font-medium hover:bg-slate-50 hover:border-border-strong hover:text-slate-text-title transition-all" type="button">Close</button>
+<div class="h-4 w-px bg-border-subtle mx-1"></div>
+<div class="flex items-center gap-2 pl-1 cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-primary-50 text-primary border border-primary/20 flex items-center justify-center font-bold text-[12px]">
+            AL
+          </div>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Workspace -->
+<main class="w-full pt-20 pb-16 bg-[#F9FAFB] min-h-[calc(100vh-56px)]">
+<div class="max-w-[1360px] mx-auto px-6">
+<div class="flex flex-col w-full space-y-6">
+<!-- Top Title & Action Bar -->
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-border-subtle/80">
+<div class="flex items-center gap-3.5 flex-wrap">
+<h1 class="text-[22px] font-bold text-slate-text-title tracking-tight">Quotation — Acme Corp</h1>
+<span class="font-mono text-[12px] font-semibold px-2.5 py-1 rounded-md bg-white border border-border-subtle text-slate-text-muted shadow-sm">QT-9402</span>
+<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-gold/30 text-amber-600 text-[11px] font-semibold tracking-wide uppercase shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-gold animate-pulse"></span>
+              Pending Approval
+            </div>
+</div>
+<div class="flex items-center gap-2.5 self-start md:self-auto">
+<button class="h-9 px-3.5 rounded-lg bg-white border border-border-subtle hover:bg-slate-50 hover:border-border-strong text-slate-text-body text-[13px] font-semibold transition-all shadow-subtle" type="button">
+              Save Draft
+            </button>
+<button class="h-9 px-3.5 rounded-lg bg-white border border-border-subtle hover:bg-slate-50 hover:border-border-strong text-slate-text-body text-[13px] font-semibold flex items-center gap-1.5 transition-all shadow-subtle" type="button">
+<span class="material-symbols-outlined text-[17px] text-slate-text-muted">picture_as_pdf</span>
+              Download PDF
+            </button>
+<button class="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-[13px] font-semibold flex items-center gap-2 shadow-sm shadow-primary/25 transition-all" type="button">
+<span class="material-symbols-outlined text-[17px]">verified</span>
+              Send to Approval
+            </button>
+</div>
+</div>
+<!-- Two-Column Primary Workspace Split -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LEFT 65% (8/12 Columns) -->
+<div class="lg:col-span-8 flex flex-col space-y-6 min-w-0">
+<!-- Customer Info Card -->
+<div class="bg-card-surface border border-border-subtle p-5 rounded-2xl shadow-card space-y-4">
+<div class="flex items-center justify-between pb-3 border-b border-border-subtle/70">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-md bg-primary-50 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[17px]">domain</span>
+</div>
+<span class="font-bold text-[12px] uppercase tracking-wider text-slate-text-title">Account &amp; Scope Overview</span>
+</div>
+<span class="font-mono text-[11px] text-slate-text-muted font-medium bg-slate-50 px-2 py-0.5 rounded border border-border-subtle">MSA: #ACME-2023-B</span>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-5 pt-1">
+<div class="flex flex-col space-y-1">
+<span class="text-[12px] font-medium text-slate-text-light uppercase tracking-wider">Customer</span>
+<div class="flex items-center gap-2 pt-0.5">
+<span class="font-semibold text-[14px] text-slate-text-title">Acme Corp</span>
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 tracking-wide uppercase">Gold</span>
+</div>
+</div>
+<div class="flex flex-col space-y-1">
+<span class="text-[12px] font-medium text-slate-text-light uppercase tracking-wider">Primary Contact</span>
+<span class="font-semibold text-[14px] text-slate-text-title pt-0.5">Sarah Jenkins</span>
+<span class="font-mono text-[11px] text-slate-text-muted truncate">s.jenkins@acmeww.com</span>
+</div>
+<div class="flex flex-col space-y-1">
+<span class="text-[12px] font-medium text-slate-text-light uppercase tracking-wider">Billing Currency</span>
+<span class="font-semibold text-[14px] text-slate-text-title pt-0.5">USD ($)</span>
+<span class="text-[11px] text-slate-text-muted">Net 30 Invoicing</span>
+</div>
+<div class="flex flex-col space-y-1">
+<span class="text-[12px] font-medium text-slate-text-light uppercase tracking-wider">Contract Term</span>
+<span class="font-semibold text-[14px] text-slate-text-title pt-0.5">12 Months (Annual)</span>
+<span class="text-[11px] text-slate-text-muted">Starts Nov 1, 2025</span>
+</div>
+</div>
+</div>
+<!-- Line Items Section -->
+<div class="space-y-3">
+<div class="flex items-center justify-between px-1">
+<div class="flex items-center gap-2.5">
+<h2 class="font-bold text-[13px] uppercase tracking-wider text-slate-text-title">Line Items (3)</h2>
+<span class="font-mono text-[11px] font-semibold text-slate-text-muted px-2 py-0.5 bg-slate-100 rounded-md border border-border-subtle">Annual Commit</span>
+</div>
+<span class="text-[13px] text-slate-text-muted">Weighted Blended Discount: <strong class="text-amber-600 font-semibold">11.7%</strong></span>
+</div>
+<!-- High-Density Enterprise Table -->
+<div class="bg-card-surface border border-border-subtle rounded-2xl overflow-hidden shadow-card">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[680px]">
+<thead>
+<tr class="bg-slate-50/80 border-b border-border-subtle text-slate-text-muted font-bold text-[11px] uppercase tracking-wider">
+<th class="py-3 px-4">Product / SKU</th>
+<th class="py-3 px-3 text-right">Qty</th>
+<th class="py-3 px-3 text-right">Unit Price</th>
+<th class="py-3 px-3 text-right">Discount</th>
+<th class="py-3 px-3 text-right">Line Total</th>
+<th class="py-3 px-4 text-center">Margin %</th>
+<th class="py-3 px-3 text-center w-10"></th>
+</tr>
+</thead>
+<tbody class="text-[13px] divide-y divide-border-subtle">
+<!-- Item 1 -->
+<tr class="hover:bg-primary-50/40 transition-colors">
+<td class="py-3.5 px-4">
+<div class="font-semibold text-slate-text-title">Enterprise Cloud Core Suite</div>
+<div class="font-mono text-[11px] text-slate-text-muted">SKU: CLD-ENT-01 • Tier 1 Core Architecture</div>
+</td>
+<td class="py-3.5 px-3 text-right font-mono font-medium text-slate-text-body">120 seats</td>
+<td class="py-3.5 px-3 text-right font-mono text-slate-text-muted">$1,200.00</td>
+<td class="py-3.5 px-3 text-right font-mono font-semibold text-amber-600">15%</td>
+<td class="py-3.5 px-3 text-right font-mono font-bold text-slate-text-title">$122,400.00</td>
+<td class="py-3.5 px-4 text-center">
+<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary uppercase">64% Margin</span>
+</td>
+<td class="py-3.5 px-3 text-center text-slate-text-light hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</td>
+</tr>
+<!-- Item 2 -->
+<tr class="bg-slate-50/40 hover:bg-primary-50/40 transition-colors">
+<td class="py-3.5 px-4">
+<div class="font-semibold text-slate-text-title">Dedicated Solutions Architect</div>
+<div class="font-mono text-[11px] text-slate-text-muted">SKU: ADV-SLA-03 • Advisory Tier 3 Dedicated</div>
+</td>
+<td class="py-3.5 px-3 text-right font-mono font-medium text-slate-text-body">2 FTE</td>
+<td class="py-3.5 px-3 text-right font-mono text-slate-text-muted">$85,000.00</td>
+<td class="py-3.5 px-3 text-right font-mono font-semibold text-amber-600">10%</td>
+<td class="py-3.5 px-3 text-right font-mono font-bold text-slate-text-title">$153,000.00</td>
+<td class="py-3.5 px-4 text-center">
+<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-text-body uppercase">48% Margin</span>
+</td>
+<td class="py-3.5 px-3 text-center text-slate-text-light hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</td>
+</tr>
+<!-- Item 3 -->
+<tr class="hover:bg-primary-50/40 transition-colors">
+<td class="py-3.5 px-4">
+<div class="font-semibold text-slate-text-title">24/7 Mission-Critical SLA (99.99%)</div>
+<div class="font-mono text-[11px] text-slate-text-muted">SKU: SUP-SLA-CRIT • 15-min Guaranteed MTTR</div>
+</td>
+<td class="py-3.5 px-3 text-right font-mono font-medium text-slate-text-body">1 Plan</td>
+<td class="py-3.5 px-3 text-right font-mono text-slate-text-muted">$37,050.00</td>
+<td class="py-3.5 px-3 text-right font-mono text-slate-text-muted">0%</td>
+<td class="py-3.5 px-3 text-right font-mono font-bold text-slate-text-title">$37,050.00</td>
+<td class="py-3.5 px-4 text-center">
+<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary uppercase">82% Margin</span>
+</td>
+<td class="py-3.5 px-3 text-center text-slate-text-light hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Add Line Item Action -->
+<button class="w-full h-10 rounded-xl border border-dashed border-border-strong hover:border-primary hover:bg-primary-50/50 text-slate-text-body hover:text-primary font-semibold text-[13px] flex items-center justify-center gap-2 transition-all" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">add_circle</span>
+                Add Line Item or Contract Addendum
+              </button>
+</div>
+<!-- Financial Calculation Block & Governance Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+<!-- Deal Approval Governance Card -->
+<div class="bg-card-surface border border-border-subtle p-5 rounded-2xl shadow-card flex flex-col justify-between space-y-4">
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded bg-amber-50 text-amber-gold flex items-center justify-center">
+<span class="material-symbols-outlined text-[17px]">shield</span>
+</div>
+<span class="font-bold text-[12px] uppercase tracking-wider text-slate-text-title">Deal Governance</span>
+</div>
+<span class="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold border border-amber-gold/30 tracking-wide uppercase">Medium Risk</span>
+</div>
+<!-- Risk Metric Progress -->
+<div class="space-y-1.5 pt-1">
+<div class="flex justify-between items-center text-[12px]">
+<span class="text-slate-text-muted font-medium">Calculated Risk Index</span>
+<span class="font-mono font-bold text-amber-600">62%</span>
+</div>
+<div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+<div class="h-full bg-gradient-to-r from-amber-gold to-primary rounded-full transition-all duration-500" style="width: 62%;"></div>
+</div>
+</div>
+<p class="text-[12px] leading-relaxed text-slate-text-muted">
+                    Risk Score: <strong class="text-slate-text-title font-semibold">62%</strong> — Regional VP Approval Required due to custom SLA modifications &amp; tiered discount threshold (&gt;10%).
+                  </p>
+</div>
+<!-- Micro Sign-off Matrix indicator -->
+<div class="pt-3 flex items-center justify-between bg-slate-50 border border-border-subtle p-2.5 rounded-xl">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded-full bg-slate-200 text-slate-text-title flex items-center justify-center font-bold text-[10px]">VP</div>
+<div class="flex flex-col">
+<span class="text-[12px] text-slate-text-title font-semibold leading-tight">Sarah Lin</span>
+<span class="font-mono text-[10px] text-slate-text-muted">Americas West Approver</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-text-light text-[18px]">schedule</span>
+</div>
+</div>
+<!-- Right Side Financial Summary Card -->
+<div class="bg-card-surface border border-border-subtle p-5 rounded-2xl shadow-card flex flex-col justify-between space-y-4">
+<div>
+<div class="flex items-center justify-between pb-3 border-b border-border-subtle">
+<span class="font-bold text-[12px] uppercase tracking-wider text-slate-text-title">Pricing Calculation</span>
+<span class="font-mono text-[11px] font-semibold text-primary">Pre-tax ARR Basis</span>
+</div>
+<div class="space-y-2.5 pt-3 text-[13px]">
+<div class="flex justify-between items-center">
+<span class="text-slate-text-muted">Gross List Subtotal</span>
+<span class="font-mono font-medium text-slate-text-title">$354,050.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-slate-text-muted">Blended Aggregate Discount (11.7%)</span>
+<span class="font-mono font-semibold text-amber-600">-$41,600.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-slate-text-muted">Estimated Taxes &amp; Surcharges</span>
+<span class="font-mono text-slate-text-light">Exempt ($0.00)</span>
+</div>
+</div>
+</div>
+<div class="pt-3 border-t border-border-subtle flex justify-between items-end">
+<div class="flex flex-col">
+<span class="font-bold text-[12px] uppercase tracking-wider text-primary">Grand Total</span>
+<span class="text-[11px] text-slate-text-muted font-medium">Net ARR Contribution</span>
+</div>
+<span class="font-mono text-[22px] font-bold text-slate-text-title leading-none">$312,450.00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT 35% (4/12 Columns) Upsell & Smart Recommendations -->
+<div class="lg:col-span-4 flex flex-col space-y-5 min-w-0">
+<!-- Container Card -->
+<div class="bg-card-surface border border-border-subtle p-5 rounded-2xl shadow-card space-y-5">
+<!-- Header -->
+<div class="flex items-center justify-between pb-3 border-b border-border-subtle">
+<h2 class="font-bold text-[12px] uppercase tracking-wider text-slate-text-title">Suggested Add-Ons</h2>
+<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary flex items-center gap-1 uppercase tracking-wide">
+<span>✦</span> Smart Insights
+                </span>
+</div>
+<!-- Suggestion Cards Stack -->
+<div class="space-y-4">
+<!-- Recommendation 1 -->
+<div class="space-y-2 group">
+<div class="flex items-start justify-between gap-2">
+<span class="font-semibold text-[13px] text-slate-text-title group-hover:text-primary transition-colors">SOC-2 Compliance Automation Pack</span>
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-50 text-primary shrink-0">+2.4% Margin</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 tracking-wide uppercase">Promo 10% OFF</span>
+<span class="font-mono text-[11px] text-slate-text-muted font-medium">+$14,500/yr</span>
+</div>
+<p class="text-[12px] leading-relaxed text-slate-text-muted">
+                    Continuous multi-cloud audit controls &amp; automated evidence collection mapped to ISO/SOC standards.
+                  </p>
+<div class="flex items-center justify-between pt-1">
+<button class="text-slate-text-light hover:text-slate-text-body text-[12px] font-medium transition-colors" type="button">Dismiss</button>
+<button class="h-7 px-2.5 rounded-lg bg-slate-50 hover:bg-primary-50 border border-border-subtle hover:border-primary/40 text-slate-text-title hover:text-primary font-semibold text-[11px] transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+                      Add to Quote
+                    </button>
+</div>
+</div>
+<div class="h-px bg-border-subtle/80"></div>
+<!-- Recommendation 2 -->
+<div class="space-y-2 group">
+<div class="flex items-start justify-between gap-2">
+<span class="font-semibold text-[13px] text-slate-text-title group-hover:text-primary transition-colors">Premium Sandbox Environment</span>
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-50 text-primary shrink-0">+1.8% Margin</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-mono text-[11px] text-slate-text-muted font-medium">+$9,200/yr • Dedicated Pod</span>
+</div>
+<p class="text-[12px] leading-relaxed text-slate-text-muted">
+                    Isolated pre-production cluster with full synthetic data mirroring for zero-risk pre-deployment testing.
+                  </p>
+<div class="flex items-center justify-between pt-1">
+<button class="text-slate-text-light hover:text-slate-text-body text-[12px] font-medium transition-colors" type="button">Dismiss</button>
+<button class="h-7 px-2.5 rounded-lg bg-slate-50 hover:bg-primary-50 border border-border-subtle hover:border-primary/40 text-slate-text-title hover:text-primary font-semibold text-[11px] transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+                      Add to Quote
+                    </button>
+</div>
+</div>
+<div class="h-px bg-border-subtle/80"></div>
+<!-- Recommendation 3 -->
+<div class="space-y-2 group">
+<div class="flex items-start justify-between gap-2">
+<span class="font-semibold text-[13px] text-slate-text-title group-hover:text-primary transition-colors">Executive Sponsor SLA Escalation</span>
+<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-50 text-primary shrink-0">+3.1% Margin</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-mono text-[11px] text-slate-text-muted font-medium">+$18,000/yr • Tier 0 Incident Bridge</span>
+</div>
+<p class="text-[12px] leading-relaxed text-slate-text-muted">
+                    Direct escalation pathway to VP of Engineering for P0 severity operational hurdles.
+                  </p>
+<div class="flex items-center justify-between pt-1">
+<button class="text-slate-text-light hover:text-slate-text-body text-[12px] font-medium transition-colors" type="button">Dismiss</button>
+<button class="h-7 px-2.5 rounded-lg bg-slate-50 hover:bg-primary-50 border border-border-subtle hover:border-primary/40 text-slate-text-title hover:text-primary font-semibold text-[11px] transition-all flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+                      Add to Quote
+                    </button>
+</div>
+</div>
+</div>
+<!-- Lockout Notice Box -->
+<div class="p-3.5 rounded-xl bg-slate-50 border border-border-subtle text-slate-text-muted flex items-start gap-2.5">
+<span class="material-symbols-outlined text-slate-text-light text-[17px] mt-0.5 shrink-0">lock</span>
+<p class="text-[11px] leading-relaxed">
+<strong class="text-slate-text-title">Quote Lock Policy:</strong> Locks automatically once submitted to VP review chain. Further modifications require workflow re-initialization.
+                </p>
+</div>
+</div>
+<!-- Live Contract Activity Stream Snapshot -->
+<div class="bg-card-surface border border-border-subtle p-4 rounded-2xl shadow-card space-y-2">
+<span class="font-bold text-[11px] uppercase tracking-wider text-slate-text-light">Audit Trail Status</span>
+<div class="flex items-center gap-2 pt-0.5">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-[12px] font-medium text-slate-text-body">Discount rule checked vs Fiscal Q4 thresholds</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Informational Banner Across Full Width -->
+<div class="rounded-2xl bg-amber-50/80 border border-amber-200 p-4 flex items-center gap-3.5 shadow-subtle">
+<div class="w-8 h-8 rounded-lg bg-amber-gold/20 text-amber-700 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">info</span>
+</div>
+<div class="flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<span class="text-[13px] text-slate-text-title">
+<strong class="text-amber-700 uppercase tracking-wider text-[11px] font-bold mr-2">Approval Workflow Note</strong>
+              Quote <span class="font-mono font-bold text-slate-text-title">QT-9402</span> requires sign-off by VP <strong>Sarah Lin (Americas West)</strong> before customer confirmation link can be issued.
+            </span>
+<span class="font-mono text-[11px] font-semibold text-slate-text-muted shrink-0 bg-white/80 px-2 py-0.5 rounded border border-amber-200">Rule Set: REV-GOV-2025.4</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Modern Clean Footer -->
+<footer class="w-full border-t border-border-subtle bg-white py-4">
+<div class="max-w-[1360px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-text-muted text-[12px]">
+<span>© 2025 DealFlow360 Enterprise Sales Operations. All rights reserved.</span>
+<div class="flex items-center gap-4">
+<span>Precision Pipeline Architecture</span>
+<span class="font-mono font-semibold text-primary">v4.2.0-PROD</span>
+</div>
+</div>
+</footer>
+</body></html>
