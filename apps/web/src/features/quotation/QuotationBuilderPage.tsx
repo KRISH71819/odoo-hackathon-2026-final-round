@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuotation, useAddLine, useUpdateQuotation, useRemoveLine, useSubmitQuote, useUpsellSuggestions, useAuditTrail } from './useQuotations';
+import { useQuotation, useAddLine, useUpdateQuotation, useRemoveLine, useSubmitQuote, useUpsellSuggestions, useAuditTrail, useDeleteQuote, useLiveRisk } from './useQuotations';
 import { useProducts } from '../catalog/useCatalog';
 import { PageHeader, StatusBadge, PrimaryButton, SecondaryButton, DangerButton, SuccessButton, Panel, NoticeStrip, Spinner, Input, Select, formatCents, formatBps } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -16,11 +16,13 @@ export default function QuotationBuilderPage() {
   const { data: productsData } = useProducts();
   const { data: suggestionsData } = useUpsellSuggestions(id!);
   const { data: auditData } = useAuditTrail(id!);
+  const { data: liveRiskData, isLoading: riskLoading } = useLiveRisk(id!);
 
   const addLine = useAddLine();
   const updateQuotation = useUpdateQuotation();
   const removeLine = useRemoveLine();
   const submitQuote = useSubmitQuote();
+  const deleteQuote = useDeleteQuote();
   const suggestFulfillment = useSuggestFulfillmentPlan();
   const { data: existingPlanData } = useQuotationFulfillmentPlan(id!);
 
@@ -30,6 +32,8 @@ export default function QuotationBuilderPage() {
   const [selectedVariantId, setSelectedVariantId] = useState('');
   const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([]);
   const [orderDiscount, setOrderDiscount] = useState<number | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   if (isLoading) return <Spinner />;
 
@@ -40,6 +44,12 @@ export default function QuotationBuilderPage() {
   const suggestions = (suggestionsData?.data || []).filter((s: any) => !dismissedSuggestions.includes(s.id));
   const auditTrail = auditData?.data || [];
   const isEditable = quote.status === 'DRAFT' || quote.status === 'REVISION';
+
+  // Live risk: use the fresh risk data when available, fall back to saved risk on quote
+  const liveRisk = liveRiskData?.data;
+  const displayRiskLevel = liveRisk?.riskLevel ?? quote.riskLevel;
+  const displayRiskScore = liveRisk?.riskScore ?? quote.riskScore;
+  const displayRiskReasons = liveRisk?.reasons ?? [];
 
   const handleAddLine = async () => {
     if (!selectedProductId) return;
@@ -55,7 +65,24 @@ export default function QuotationBuilderPage() {
 
   const handleSubmit = async () => {
     if (!confirm('Submit this quotation for approval? Lines cannot be edited while pending.')) return;
-    await submitQuote.mutateAsync(id!);
+    setSubmitError(null);
+    try {
+      await submitQuote.mutateAsync(id!);
+      setSubmitSuccess(true);
+      // Stay on this page — the quote will refresh showing the new PENDING status
+    } catch (err: any) {
+      setSubmitError(err?.message ?? 'Submission failed');
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!confirm('Delete this draft quotation? This cannot be undone.')) return;
+    try {
+      await deleteQuote.mutateAsync(id!);
+      navigate('/quotations');
+    } catch (err: any) {
+      alert('Could not delete: ' + (err?.message || 'Error'));
+    }
   };
 
   const handleOpenPortal = async () => {
@@ -92,8 +119,35 @@ export default function QuotationBuilderPage() {
             {existingPlanData?.data ? 'Regenerate Fulfillment Plan' : 'Generate Fulfillment Plan'}
           </PrimaryButton>
         )}
+        {existingPlanData?.data?.id && (
+          <SecondaryButton onClick={() => navigate(`/fulfillment/${existingPlanData.data.id}`)}>
+            📦 View Fulfillment Plan
+          </SecondaryButton>
+        )}
+        {['CONFIRMED', 'BILLED', 'PAID'].includes(quote.status) && (
+          <SecondaryButton onClick={() => navigate(`/billing/${quote.id}`)}>
+            💳 Billing Schedule
+          </SecondaryButton>
+        )}
+        {['BILLED', 'PAID'].includes(quote.status) && (
+          <SecondaryButton onClick={() => navigate('/invoices')}>
+            🧾 Invoices
+          </SecondaryButton>
+        )}
         <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
       </PageHeader>
+
+      {/* Success/Error Notices */}
+      {submitSuccess && (
+        <NoticeStrip variant="info" className="mb-4">
+          ✓ Quotation submitted for approval. Status updated to {quote.status.replace(/_/g, ' ')}.
+        </NoticeStrip>
+      )}
+      {submitError && (
+        <NoticeStrip variant="danger" className="mb-4">
+          ✗ {submitError}
+        </NoticeStrip>
+      )}
 
       {/* Quote Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -107,17 +161,28 @@ export default function QuotationBuilderPage() {
           <p className="font-medium">{quote.salesRep?.name}</p>
         </Panel>
         <Panel>
-          <p className="text-xs text-charcoal-400">Risk Level</p>
-          <StatusBadge status={quote.riskLevel} className="text-sm" />
-          {quote.riskScore > 0 && <span className="text-xs text-charcoal-400 ml-2">Score: {quote.riskScore} bps</span>}
+          <p className="text-xs text-charcoal-400">
+            Risk Level {riskLoading && isEditable && <span className="text-xs text-charcoal-500"> (recalculating…)</span>}
+          </p>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={displayRiskLevel ?? 'NONE'} className="text-sm" />
+            {displayRiskScore > 0 && <span className="text-xs text-charcoal-400">Score: {displayRiskScore} bps</span>}
+          </div>
+          {displayRiskReasons.length > 0 && (
+            <ul className="mt-1 space-y-0.5">
+              {displayRiskReasons.map((r: string, i: number) => (
+                <li key={i} className="text-xs text-charcoal-400">• {r}</li>
+              ))}
+            </ul>
+          )}
         </Panel>
       </div>
 
       {/* Risk Warning */}
-      {(quote.riskLevel === 'MEDIUM' || quote.riskLevel === 'HIGH') && (
-        <NoticeStrip variant={quote.riskLevel === 'HIGH' ? 'danger' : 'warning'}>
-          ⚠ This quotation has {quote.riskLevel.toLowerCase()} discount risk. It will require{' '}
-          {quote.riskLevel === 'HIGH' ? 'manager and finance' : 'manager'} approval.
+      {(displayRiskLevel === 'MEDIUM' || displayRiskLevel === 'HIGH') && (
+        <NoticeStrip variant={displayRiskLevel === 'HIGH' ? 'danger' : 'warning'}>
+          ⚠ This quotation has {displayRiskLevel?.toLowerCase()} discount risk. It will require{' '}
+          {displayRiskLevel === 'HIGH' ? 'manager and finance' : 'manager'} approval.
         </NoticeStrip>
       )}
 
@@ -225,7 +290,7 @@ export default function QuotationBuilderPage() {
           )}
         </div>
 
-        {/* Right Sidebar — Totals + Upsell */}
+        {/* Right Sidebar — Totals + Actions + Upsell */}
         <div className="space-y-4">
           {/* Totals Panel */}
           <Panel title="Totals">
@@ -284,44 +349,62 @@ export default function QuotationBuilderPage() {
                 />
               </div>
               <SuccessButton className="w-full" onClick={handleSubmit} disabled={submitQuote.isPending}>
-                Submit for Approval
+                {submitQuote.isPending ? 'Submitting…' : 'Submit for Approval'}
               </SuccessButton>
             </Panel>
           )}
 
-          {/* Upsell Panel */}
-          {suggestions.length > 0 && isEditable && (
+          {/* Delete Draft */}
+          {quote.status === 'DRAFT' && (
+            <Panel>
+              <DangerButton className="w-full" onClick={handleDeleteDraft} disabled={deleteQuote.isPending}>
+                {deleteQuote.isPending ? 'Deleting…' : '🗑 Delete Draft'}
+              </DangerButton>
+            </Panel>
+          )}
+
+          {/* Upsell Suggestions Panel — always shown when editable */}
+          {isEditable && (
             <Panel title="💡 Suggestions">
-              <div className="space-y-3">
-                {suggestions.map((s: any) => (
-                  <div key={s.id} className="bg-charcoal-900 border border-charcoal-700 rounded p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium text-sm">{s.suggestedProduct.name}</span>
-                      {s.isPromotion && <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">PROMO</span>}
-                    </div>
-                    <p className="text-xs text-charcoal-400 mb-2">{s.reason}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-success">
-                        +{formatCents(s.estimatedMarginDelta)} margin
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => addLine.mutate({ quotationId: id!, data: { productId: s.suggestedProduct.id, quantity: 1, lineDiscountBps: 0 } })}
-                          className="text-xs bg-accent/20 text-accent px-2 py-1 rounded hover:bg-accent/30"
-                        >
-                          Add
-                        </button>
-                        <button
-                          onClick={() => setDismissedSuggestions((prev) => [...prev, s.id])}
-                          className="text-xs text-charcoal-500 px-2 py-1 hover:text-charcoal-300"
-                        >
-                          Dismiss
-                        </button>
+              {suggestions.length === 0 ? (
+                <p className="text-xs text-charcoal-500">
+                  {quote.lines.length === 0
+                    ? 'Add products to see suggestions.'
+                    : 'No upsell suggestions configured for current products.'}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {suggestions.map((s: any) => (
+                    <div key={s.id} className="bg-charcoal-900 border border-charcoal-700 rounded p-3">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-medium text-sm">{s.suggestedProduct.name}</span>
+                        {s.isPromotion && <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">PROMO</span>}
+                      </div>
+                      <p className="text-xs text-charcoal-400 mb-2">{s.reason}</p>
+                      <div className="text-xs text-charcoal-500 mb-2">From: {s.sourceProductName}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-success">
+                          +{formatCents(s.estimatedMarginDelta)} margin
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => addLine.mutate({ quotationId: id!, data: { productId: s.suggestedProduct.id, quantity: 1, lineDiscountBps: 0 } })}
+                            className="text-xs bg-accent/20 text-accent px-2 py-1 rounded hover:bg-accent/30"
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => setDismissedSuggestions((prev) => [...prev, s.id])}
+                            className="text-xs text-charcoal-500 px-2 py-1 hover:text-charcoal-300"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Panel>
           )}
 
@@ -346,3 +429,4 @@ export default function QuotationBuilderPage() {
     </div>
   );
 }
+

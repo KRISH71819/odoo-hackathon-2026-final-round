@@ -9,6 +9,7 @@ const KEYS = {
   quotation: (id: string) => ['quotations', id] as const,
   upsellSuggestions: (id: string) => ['upsell-suggestions', id] as const,
   auditTrail: (id: string) => ['audit-trail', id] as const,
+  liveRisk: (id: string) => ['live-risk', id] as const,
 };
 
 export function useQuotations(params?: Record<string, string>) {
@@ -42,6 +43,7 @@ export function useUpdateQuotation() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: KEYS.quotation(vars.id) });
       qc.invalidateQueries({ queryKey: KEYS.quotations });
+      qc.invalidateQueries({ queryKey: KEYS.liveRisk(vars.id) });
     },
   });
 }
@@ -54,6 +56,7 @@ export function useAddLine() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: KEYS.quotation(vars.quotationId) });
       qc.invalidateQueries({ queryKey: KEYS.upsellSuggestions(vars.quotationId) });
+      qc.invalidateQueries({ queryKey: KEYS.liveRisk(vars.quotationId) });
     },
   });
 }
@@ -65,6 +68,7 @@ export function useUpdateLine() {
       api.put(`/quotations/${quotationId}/lines/${lineId}`, data),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: KEYS.quotation(vars.quotationId) });
+      qc.invalidateQueries({ queryKey: KEYS.liveRisk(vars.quotationId) });
     },
   });
 }
@@ -77,6 +81,7 @@ export function useRemoveLine() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: KEYS.quotation(vars.quotationId) });
       qc.invalidateQueries({ queryKey: KEYS.upsellSuggestions(vars.quotationId) });
+      qc.invalidateQueries({ queryKey: KEYS.liveRisk(vars.quotationId) });
     },
   });
 }
@@ -92,11 +97,30 @@ export function useSubmitQuote() {
   });
 }
 
+export function useDeleteQuote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (quotationId: string) => api.del(`/quotations/${quotationId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEYS.quotations });
+    },
+  });
+}
+
 export function useUpsellSuggestions(quotationId: string) {
   return useQuery({
     queryKey: KEYS.upsellSuggestions(quotationId),
     queryFn: () => api.get<any>(`/quotations/${quotationId}/upsell-suggestions`),
     enabled: !!quotationId,
+  });
+}
+
+export function useLiveRisk(quotationId: string) {
+  return useQuery({
+    queryKey: KEYS.liveRisk(quotationId),
+    queryFn: () => api.get<any>(`/quotations/${quotationId}/risk`),
+    enabled: !!quotationId,
+    staleTime: 0, // always refetch when invalidated
   });
 }
 

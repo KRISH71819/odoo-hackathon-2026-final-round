@@ -418,3 +418,33 @@ async function writeAudit(quotationId: string, userId: string, action: string, d
     data: { quotationId, userId, action, details },
   });
 }
+
+// ── Delete Draft ──────────────────────────────────────────────
+
+export async function deleteQuotation(quotationId: string, userId: string) {
+  const quote = await getQuotationById(quotationId);
+
+  if (quote.status !== QuotationStatus.DRAFT) {
+    throw new AppError(409, 'NOT_DELETABLE', `Only DRAFT quotations can be deleted. This quotation is ${quote.status}.`);
+  }
+
+  await writeAudit(quotationId, userId, 'QUOTATION_DELETED', `Quotation ${quote.number} deleted by user`);
+
+  // Delete in dependency order
+  await prisma.auditLog.deleteMany({ where: { quotationId } });
+  await prisma.quotationLine.deleteMany({ where: { quotationId } });
+  await prisma.quotation.delete({ where: { id: quotationId } });
+}
+
+// ── Live Risk Calculation (no persist) ───────────────────────
+
+export async function getLiveRisk(quotationId: string) {
+  const quote = await getQuotationById(quotationId);
+  const riskResult = await calculateRiskForQuote(quote);
+  return {
+    riskLevel: riskResult.riskLevel,
+    riskScore: riskResult.blendedRiskBps,
+    reasons: riskResult.reasons,
+    lineResults: riskResult.lineResults,
+  };
+}

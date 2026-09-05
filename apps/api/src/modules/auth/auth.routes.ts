@@ -32,8 +32,8 @@ authRoutes.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password, name } = req.body;
-      // Public signup is always a Sales Rep. Privileged roles are admin-controlled/seeded.
-      const result = await authService.signup(email, password, name, 'SALES_REP');
+      // Public signup is always a CUSTOMER. Privileged roles are admin-controlled.
+      const result = await authService.signup(email, password, name, 'CUSTOMER');
       sendCreated(res, result);
     } catch (err) {
       next(err);
@@ -49,6 +49,37 @@ authRoutes.get(
     try {
       const user = await authService.getMe(req.user!.userId);
       sendSuccess(res, user);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Admin-only: Create user with role
+authRoutes.post(
+  '/users',
+  authMiddleware,
+  requireRole('ADMIN'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password, name, role } = req.body;
+      const result = await authService.signup(email, password, name, role);
+      sendCreated(res, result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Admin-only: Get all users
+authRoutes.get(
+  '/users',
+  authMiddleware,
+  requireRole('ADMIN'),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const users = await authService.getAllUsers();
+      sendSuccess(res, users);
     } catch (err) {
       next(err);
     }

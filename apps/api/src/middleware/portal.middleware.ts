@@ -26,31 +26,35 @@ declare global {
  * Validates token, checks expiry, and scopes access to specific customer+quote.
  */
 export async function portalMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
-  const token = req.headers['x-portal-token'] as string | undefined;
+  try {
+    const token = req.headers['x-portal-token'] as string | undefined;
 
-  if (!token) {
-    throw new UnauthorizedError('Missing portal access token');
+    if (!token) {
+      throw new UnauthorizedError('Missing portal access token');
+    }
+
+    const accessToken = await prisma.customerAccessToken.findUnique({
+      where: { token },
+    });
+
+    if (!accessToken) {
+      throw new UnauthorizedError('Invalid portal access token');
+    }
+
+    if (new Date() > accessToken.expiresAt) {
+      throw new UnauthorizedError('Portal access token has expired');
+    }
+
+    req.portal = {
+      customerId: accessToken.customerId,
+      quotationId: accessToken.quotationId,
+      tokenId: accessToken.id,
+    };
+
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  const accessToken = await prisma.customerAccessToken.findUnique({
-    where: { token },
-  });
-
-  if (!accessToken) {
-    throw new UnauthorizedError('Invalid portal access token');
-  }
-
-  if (new Date() > accessToken.expiresAt) {
-    throw new UnauthorizedError('Portal access token has expired');
-  }
-
-  req.portal = {
-    customerId: accessToken.customerId,
-    quotationId: accessToken.quotationId,
-    tokenId: accessToken.id,
-  };
-
-  next();
 }
 
 /**
@@ -58,15 +62,20 @@ export async function portalMiddleware(req: Request, _res: Response, next: NextF
  * Use after portalMiddleware.
  */
 export function enforcePortalScope(req: Request, _res: Response, next: NextFunction): void {
-  const quotationId = req.params.quotationId ?? req.params.id;
+  try {
+    const quotationId = req.params.quotationId ?? req.params.id;
 
-  if (!req.portal) {
-    throw new UnauthorizedError('Portal context not found');
+    if (!req.portal) {
+      throw new UnauthorizedError('Portal context not found');
+    }
+
+    if (quotationId && quotationId !== req.portal.quotationId) {
+      throw new ForbiddenError('Access denied: this token does not grant access to the requested quotation');
+    }
+
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  if (quotationId && quotationId !== req.portal.quotationId) {
-    throw new ForbiddenError('Access denied: this token does not grant access to the requested quotation');
-  }
-
-  next();
 }
+

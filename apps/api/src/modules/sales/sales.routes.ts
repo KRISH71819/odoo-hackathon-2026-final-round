@@ -124,6 +124,33 @@ salesRoutes.post(
   },
 );
 
+// ── Delete Draft ─────────────────────────────────────────────
+
+salesRoutes.delete(
+  '/quotations/:id',
+  authMiddleware,
+  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await salesService.deleteQuotation(req.params.id as string, req.user!.userId);
+      res.status(204).send();
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Live Risk (for display during editing) ───────────────────
+
+salesRoutes.get(
+  '/quotations/:id/risk',
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const risk = await salesService.getLiveRisk(req.params.id as string);
+      res.json({ data: risk });
+    } catch (err) { next(err); }
+  },
+);
+
 // ── Upsell Suggestions ──────────────────────────────────────
 
 salesRoutes.get('/quotations/:id/upsell-suggestions', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {

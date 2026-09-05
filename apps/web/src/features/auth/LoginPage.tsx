@@ -29,7 +29,7 @@ export function LoginPage() {
   useEffect(() => {
     if (isAuthenticated) {
       if (user?.role === 'CUSTOMER') {
-        navigate('/customers', { replace: true });
+        navigate('/my-portal', { replace: true });
       } else {
         navigate('/', { replace: true });
       }
@@ -85,7 +85,7 @@ export function LoginPage() {
           <CardHeader className="text-center">
             <CardTitle>{mode === 'signup' ? 'Create Account' : 'Sign In'}</CardTitle>
             <CardDescription>
-              {mode === 'signup' ? 'Sign up for a Sales Rep account' : 'Enter your credentials to continue'}
+              {mode === 'signup' ? 'Create a customer account to view and manage your quotes' : 'Enter your credentials to continue'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -135,7 +135,7 @@ export function LoginPage() {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Please wait...' : mode === 'signup' ? 'Create Sales Rep Account' : 'Sign In'}
+                {loading ? 'Please wait...' : mode === 'signup' ? 'Create Customer Account' : 'Sign In'}
               </Button>
             </form>
 
@@ -148,7 +148,7 @@ export function LoginPage() {
                 }}
                 className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
               >
-                {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+                {mode === 'login' ? 'Customer? Create an account' : 'Already have an account? Sign in'}
               </button>
             </div>
 

@@ -10,8 +10,10 @@ import {
 import { api } from '../../lib/api.js';
 import { useProducts, usePriceLists } from '../catalog/useCatalog.js';
 import { useWarehouses } from '../fulfillment/useFulfillment.js';
+import { useAuth } from '../../lib/auth.js';
 
 export default function AdminConfigPage() {
+  const { user: currentUser } = useAuth();
   const { data: productsData } = useProducts();
   const { data: priceListsData, refetch: refetchPrices } = usePriceLists();
   const { data: warehousesData, refetch: refetchWarehouses } = useWarehouses();
@@ -23,6 +25,8 @@ export default function AdminConfigPage() {
 
   const [plans, setPlans] = useState<any[]>([]);
   const [message, setMessage] = useState('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'SALES_REP' });
 
   const [warehouse, setWarehouse] = useState({
     name: '',
@@ -49,9 +53,10 @@ export default function AdminConfigPage() {
   });
 
   const loadConfiguration = async () => {
-    const [discountResponse, subscriptionResponse] = await Promise.all([
+    const [discountResponse, subscriptionResponse, usersResponse] = await Promise.all([
       api.get<any>('/discount-rules'),
       api.get<any>('/billing/subscription-plans'),
+      currentUser?.role === 'ADMIN' ? api.get<any>('/auth/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     ]);
 
     setDiscounts(
@@ -62,6 +67,7 @@ export default function AdminConfigPage() {
     );
 
     setPlans(subscriptionResponse.data ?? []);
+    setUsers(usersResponse.data ?? []);
   };
 
   useEffect(() => {
@@ -454,6 +460,90 @@ export default function AdminConfigPage() {
             ))}
           </div>
         </Panel>
+        {/* Admin: User Management */}
+        {currentUser?.role === 'ADMIN' && (
+          <Panel title="User Management" className="lg:col-span-2">
+            <div className="space-y-4">
+              <p className="text-xs text-charcoal-400">
+                Create internal employee accounts. Public signup creates customer accounts only.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                <Input
+                  label="Full Name"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                />
+                <Input
+                  label="Email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                />
+                <Input
+                  label="Password"
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                />
+                <Select
+                  label="Role"
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                >
+                  <option value="SALES_REP">Sales Rep</option>
+                  <option value="SALES_MANAGER">Sales Manager</option>
+                  <option value="FINANCE_OPS">Finance Ops</option>
+                  <option value="ADMIN">Admin</option>
+                </Select>
+              </div>
+
+              <PrimaryButton
+                disabled={!newUser.name || !newUser.email || !newUser.password}
+                onClick={async () => {
+                  try {
+                    await api.post('/auth/users', newUser);
+                    setNewUser({ name: '', email: '', password: '', role: 'SALES_REP' });
+                    await loadConfiguration();
+                    setMessage(`User ${newUser.email} created successfully.`);
+                  } catch (err: any) {
+                    setMessage('Error: ' + (err?.message || 'Could not create user'));
+                  }
+                }}
+              >
+                Create Employee Account
+              </PrimaryButton>
+
+              {users.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-xs text-charcoal-400 font-medium mb-2">Current Users ({users.length})</p>
+                  <div className="overflow-x-auto">
+                    <table className="data-table text-xs">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((u: any) => (
+                          <tr key={u.id}>
+                            <td className="font-medium">{u.name}</td>
+                            <td className="text-charcoal-400">{u.email}</td>
+                            <td>{u.role.replace('_', ' ')}</td>
+                            <td>{u.isActive !== false ? 'Active' : 'Inactive'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Panel>
+        )}
 
       </div>
     </div>

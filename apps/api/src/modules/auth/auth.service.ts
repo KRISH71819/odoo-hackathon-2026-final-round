@@ -4,7 +4,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../shared/prisma.js';
-import { UnauthorizedError, ConflictError, NotFoundError } from '../../shared/errors.js';
+import { UnauthorizedError, ConflictError, NotFoundError, AppError } from '../../shared/errors.js';
 import type { AuthPayload } from '../../middleware/auth.middleware.js';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dealflow360-dev-secret-change-in-production';
@@ -206,5 +206,59 @@ export async function createCustomer(data: { name: string; email: string; tier?:
       passwordHash: defaultPassword,
     },
     select: { id: true, name: true, email: true, tier: true, createdAt: true },
+  });
+}
+
+// ── Admin User Management ────────────────────────────────────
+
+export async function getAllUsers() {
+  return prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      tier: true,
+      createdAt: true,
+    },
+    orderBy: [{ role: 'asc' }, { name: 'asc' }],
+  });
+}
+
+export async function adminCreateUser(
+  email: string,
+  password: string,
+  name: string,
+  role: string,
+): Promise<LoginResult> {
+  const allowedRoles = ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS', 'CUSTOMER'];
+  if (!allowedRoles.includes(role)) {
+    throw new AppError(400, 'INVALID_ROLE', `Invalid role: ${role}`);
+  }
+  return signup(email, password, name, role);
+}
+
+export async function adminUpdateUser(
+  id: string,
+  data: { isActive?: boolean; name?: string; role?: string; tier?: string },
+) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new NotFoundError('User', id);
+
+  const allowedRoles = ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS', 'CUSTOMER'];
+  if (data.role && !allowedRoles.includes(data.role)) {
+    throw new AppError(400, 'INVALID_ROLE', `Invalid role: ${data.role}`);
+  }
+
+  return prisma.user.update({
+    where: { id },
+    data: {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.isActive !== undefined && { isActive: data.isActive }),
+      ...(data.role !== undefined && { role: data.role }),
+      ...(data.tier !== undefined && { tier: data.tier }),
+    },
+    select: { id: true, name: true, email: true, role: true, isActive: true, tier: true, updatedAt: true },
   });
 }
