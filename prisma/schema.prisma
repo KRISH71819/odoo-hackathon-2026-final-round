@@ -21,6 +21,7 @@ model User {
   passwordHash String
   name         String
   role         String   @default("SALES_REP") // UserRole enum
+  tier         String   @default("BRONZE") // CustomerTier enum (for customer role)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -57,7 +58,7 @@ model Product {
   name        String
   sku         String   @unique
   category    String   // ProductCategory enum
-  type        String   // ProductType enum
+  type        String   @default("HARDWARE") // ProductType enum
   description String   @default("")
   unitPrice   Int      // Minor currency units (cents)
   costPrice   Int      @default(0)
@@ -71,6 +72,8 @@ model Product {
   priceListItems PriceListItem[]
   quotationLines QuotationLine[]
   stocks         Stock[]
+  upsellSources  UpsellRule[]    @relation("UpsellSource")
+  upsellTargets  UpsellRule[]    @relation("UpsellTarget")
 
   @@index([category])
   @@index([type])
@@ -116,27 +119,44 @@ model PriceListItem {
   @@unique([priceListId, productId])
 }
 
+model UpsellRule {
+  id                 String   @id @default(cuid())
+  sourceProductId    String
+  suggestedProductId String
+  reason             String   @default("")
+  minMarginBps       Int      @default(0)
+  isPromotion        Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  sourceProduct    Product @relation("UpsellSource", fields: [sourceProductId], references: [id])
+  suggestedProduct Product @relation("UpsellTarget", fields: [suggestedProductId], references: [id])
+}
+
 // ═══════════════════════════════════════════
 // SALES MODULE
 // ═══════════════════════════════════════════
 
 model Quotation {
-  id            String   @id @default(cuid())
-  number        String   @unique // Auto-generated: Q-1001, Q-1002, etc.
-  customerId    String
-  salesRepId    String
-  status        String   @default("DRAFT") // QuotationStatus enum
-  subtotal      Int      @default(0) // Minor currency units
-  taxTotal      Int      @default(0)
-  total         Int      @default(0)
-  orderDiscount Float    @default(0) // Percentage
-  marginPercent Float    @default(0)
-  riskScore     Float    @default(0)
-  riskLevel     String   @default("NONE") // RiskLevel enum
-  version       Int      @default(1) // Optimistic locking
-  notes         String   @default("")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default(cuid())
+  number           String   @unique // Auto-generated: Q-1001, Q-1002, etc.
+  title            String   @default("New Quotation")
+  customerId       String
+  salesRepId       String
+  status           String   @default("DRAFT") // QuotationStatus enum
+  subtotal         Int      @default(0) // Minor currency units (cents)
+  taxTotal         Int      @default(0)
+  total            Int      @default(0)
+  orderDiscount    Float    @default(0) // Percentage
+  orderDiscountBps Int      @default(0) // Basis points
+  totalDiscount    Int      @default(0) // Cents
+  marginPercent    Float    @default(0)
+  riskScore        Float    @default(0)
+  riskLevel        String   @default("NONE") // RiskLevel enum
+  version          Int      @default(1) // Optimistic locking
+  notes            String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   // Relations
   customer          User              @relation("Customer", fields: [customerId], references: [id])
@@ -148,6 +168,7 @@ model Quotation {
   invoices          Invoice[]
   negotiationThread NegotiationThread?
   dealHealthAlerts  DealHealthAlert[]
+  auditLogs         AuditLog[]
 
   @@index([status])
   @@index([customerId])
@@ -156,20 +177,26 @@ model Quotation {
 }
 
 model QuotationLine {
-  id            String @id @default(cuid())
-  quotationId   String
-  productId     String
-  variantId     String?
-  description   String @default("")
-  quantity      Int    @default(1)
-  unitPrice     Int    // Minor currency units
-  lineDiscount  Float  @default(0) // Percentage
-  subtotal      Int    @default(0)
-  taxAmount     Int    @default(0)
-  total         Int    @default(0)
-  costPrice     Int    @default(0)
-  marginPercent Float  @default(0)
-  sortOrder     Int    @default(0)
+  id              String  @id @default(cuid())
+  quotationId     String
+  productId       String
+  variantId       String?
+  productName     String  @default("")
+  productCategory String  @default("HARDWARE")
+  description     String  @default("")
+  quantity        Int     @default(1)
+  unitPrice       Int     // Minor currency units (cents)
+  lineDiscount    Float   @default(0) // Percentage
+  discountBps     Int     @default(0) // Basis points
+  discountAmount  Int     @default(0) // Cents
+  afterDiscount   Int     @default(0) // Cents
+  taxRate         Int     @default(0) // Basis points
+  subtotal        Int     @default(0)
+  taxAmount       Int     @default(0)
+  total           Int     @default(0)
+  costPrice       Int     @default(0)
+  marginPercent   Float   @default(0)
+  sortOrder       Int     @default(0)
 
   quotation        Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   product          Product           @relation(fields: [productId], references: [id])
@@ -187,7 +214,8 @@ model QuotationLine {
 model DiscountRule {
   id                 String @id @default(cuid())
   customerTier       String // CustomerTier enum
-  maxDiscountPercent Float
+  maxDiscountPercent Float  @default(0)
+  maxDiscountBps     Int    @default(0) // Basis points
   description        String @default("")
 
   @@unique([customerTier])
@@ -196,7 +224,8 @@ model DiscountRule {
 model CategoryDiscountRule {
   id                 String @id @default(cuid())
   category           String // ProductCategory enum
-  maxDiscountPercent Float
+  maxDiscountPercent Float  @default(0)
+  maxDiscountBps     Int    @default(0) // Basis points
   description        String @default("")
 
   @@unique([category])
@@ -204,8 +233,9 @@ model CategoryDiscountRule {
 
 model ApprovalThreshold {
   id                String @id @default(cuid())
-  minRiskScore      Float
-  maxRiskScore      Float
+  riskLevel         String @default("LOW") // RiskLevel enum
+  minRiskScore      Float  @default(0)
+  maxRiskScore      Float  @default(0)
   requiredApprovers String // JSON array of UserRole values
   description       String @default("")
 }
@@ -214,8 +244,13 @@ model ApprovalRequest {
   id          String   @id @default(cuid())
   quotationId String
   status      String   @default("PENDING") // ApprovalRequestStatus enum
+  step        Int      @default(1)
+  role        String   @default("SALES_MANAGER")
   currentStep Int      @default(0)
   totalSteps  Int      @default(1)
+  decidedAt   DateTime?
+  comment     String   @default("")
+  reason      String   @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -232,7 +267,7 @@ model ApprovalAction {
   userId            String
   action            String   // ApprovalActionType enum
   reason            String   @default("")
-  stepIndex         Int
+  stepIndex         Int      @default(0)
   createdAt         DateTime @default(now())
 
   approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
@@ -242,17 +277,21 @@ model ApprovalAction {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  entityType String   // e.g., "Quotation", "ApprovalRequest"
-  entityId   String
-  action     String   // e.g., "CREATED", "STATUS_CHANGED", "APPROVED"
-  userId     String
-  changes    String   @default("{}") // JSON string of changes
-  reason     String   @default("")
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  quotationId String?
+  entityType  String   @default("Quotation")
+  entityId    String   @default("")
+  action      String
+  userId      String
+  details     String   @default("")
+  changes     String   @default("{}")
+  reason      String   @default("")
+  createdAt   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  quotation Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
 
+  @@index([quotationId])
   @@index([entityType, entityId])
   @@index([userId])
   @@index([createdAt])

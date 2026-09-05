@@ -7,6 +7,7 @@ export enum UserRole {
   SALES_REP = 'SALES_REP',
   SALES_MANAGER = 'SALES_MANAGER',
   FINANCE_OPS = 'FINANCE_OPS',
+  FINANCE = 'FINANCE_OPS', // Alias for compatibility
   CUSTOMER = 'CUSTOMER',
 }
 
@@ -37,6 +38,9 @@ export enum ApprovalRequestStatus {
   REJECTED = 'REJECTED',
   RETURNED = 'RETURNED',
 }
+
+export const ApprovalStatus = ApprovalRequestStatus;
+export type ApprovalStatus = ApprovalRequestStatus;
 
 export enum FulfillmentStatus {
   PENDING = 'PENDING',
@@ -98,4 +102,19 @@ export enum AlertSeverity {
   INFO = 'INFO',
   WARNING = 'WARNING',
   CRITICAL = 'CRITICAL',
+}
+
+// ── Audit ────────────────────────────────────────────────────
+export enum AuditAction {
+  QUOTATION_CREATED = 'QUOTATION_CREATED',
+  QUOTATION_UPDATED = 'QUOTATION_UPDATED',
+  QUOTATION_SUBMITTED = 'QUOTATION_SUBMITTED',
+  QUOTATION_APPROVED = 'QUOTATION_APPROVED',
+  QUOTATION_REJECTED = 'QUOTATION_REJECTED',
+  QUOTATION_RETURNED = 'QUOTATION_RETURNED',
+  LINE_ADDED = 'LINE_ADDED',
+  LINE_UPDATED = 'LINE_UPDATED',
+  LINE_REMOVED = 'LINE_REMOVED',
+  UPSELL_ADDED = 'UPSELL_ADDED',
+  UPSELL_DISMISSED = 'UPSELL_DISMISSED',
 }

@@ -1,6 +1,5 @@
 // ── DealFlow360 – Reusable UI Components ──
-// Compact, dark-themed primitives matching the mockup.
-// No neon, no glassmorphism, no gradients.
+// Unified compact dark-themed enterprise components.
 
 import React from 'react';
 
@@ -9,18 +8,21 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  children,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
+  const actionContent = actions ?? children;
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
         <h1 className="text-xl font-semibold text-df-text">{title}</h1>
         {subtitle && <p className="text-sm text-df-text-muted mt-0.5">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actionContent && <div className="flex items-center gap-2">{actionContent}</div>}
     </div>
   );
 }
@@ -48,6 +50,27 @@ export function Panel({
 }
 
 // ── StatusBadge ──
+const statusColors: Record<string, string> = {
+  DRAFT: 'bg-df-border text-df-text-muted border border-df-border',
+  REVISION: 'bg-amber-950/40 text-amber-400 border border-amber-800',
+  PENDING_MANAGER: 'bg-blue-950/40 text-blue-400 border border-blue-800',
+  PENDING_FINANCE: 'bg-indigo-950/40 text-indigo-400 border border-indigo-800',
+  APPROVED: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
+  REJECTED: 'bg-rose-950/40 text-rose-400 border border-rose-800',
+  FULFILLMENT_READY: 'bg-blue-950/40 text-blue-400 border border-blue-800',
+  CONFIRMED: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
+  BILLED: 'bg-blue-950/40 text-blue-400 border border-blue-800',
+  PAID: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
+  PENDING: 'bg-amber-950/40 text-amber-400 border border-amber-800',
+  RETURNED: 'bg-amber-950/40 text-amber-400 border border-amber-800',
+  NONE: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
+  LOW: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
+  MEDIUM: 'bg-amber-950/40 text-amber-400 border border-amber-800',
+  HIGH: 'bg-rose-950/40 text-rose-400 border border-rose-800',
+  ACTIVE: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
+  INACTIVE: 'bg-df-border text-df-text-muted border border-df-border',
+};
+
 const badgeColors = {
   success: 'bg-df-success-bg text-df-success border border-green-800',
   warning: 'bg-df-warning-bg text-df-warning border border-yellow-800',
@@ -57,14 +80,29 @@ const badgeColors = {
 } as const;
 
 export function StatusBadge({
+  status,
   label,
   variant = 'neutral',
+  className = '',
 }: {
-  label: string;
-  variant?: keyof typeof badgeColors;
+  status?: string;
+  label?: string;
+  variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  className?: string;
 }) {
+  if (status) {
+    const color = statusColors[status] || 'bg-df-border text-df-text-muted border border-df-border';
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color} ${className}`}>
+        {status.replace(/_/g, ' ')}
+      </span>
+    );
+  }
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badgeColors[variant]}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border ${badgeColors[variant]} ${className}`}
+    >
       {label}
     </span>
   );
@@ -73,68 +111,92 @@ export function StatusBadge({
 // ── NoticeStrip ──
 export function NoticeStrip({
   children,
-  variant = 'info',
+  variant = 'warning',
+  className = '',
 }: {
   children: React.ReactNode;
-  variant?: 'info' | 'warning' | 'success' | 'danger';
+  variant?: 'warning' | 'info' | 'danger';
+  className?: string;
 }) {
-  const colors = {
-    info: 'bg-df-info-bg border-blue-700 text-blue-200',
-    warning: 'bg-df-notice-bg border-df-notice text-yellow-200',
-    success: 'bg-df-success-bg border-green-700 text-green-200',
-    danger: 'bg-df-danger-bg border-red-700 text-red-200',
+  const variants = {
+    warning: 'bg-df-warning-bg text-df-warning border-yellow-800',
+    info: 'bg-df-info-bg text-df-info border-blue-800',
+    danger: 'bg-df-danger-bg text-df-danger border-red-800',
   };
-
   return (
-    <div className={`px-4 py-2.5 rounded border-l-4 text-sm ${colors[variant]}`}>
+    <div className={`px-3 py-2 text-sm border rounded ${variants[variant]} ${className}`}>
       {children}
     </div>
   );
 }
 
-// ── Button ──
-const buttonVariants = {
-  primary: 'bg-df-nav hover:bg-df-nav-hover text-white',
-  success: 'bg-df-success hover:bg-green-600 text-white',
-  danger: 'bg-df-danger hover:bg-red-600 text-white',
-  ghost: 'bg-transparent hover:bg-df-border text-df-text-muted',
-  outline: 'bg-transparent border border-df-border hover:bg-df-border text-df-text',
-} as const;
+// ── Buttons ──
+
+const btnBase =
+  'inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded transition-colors duration-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none';
+
+export function PrimaryButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button className={`${btnBase} bg-df-nav hover:bg-df-nav-hover text-white ${className}`} {...props}>
+      {children}
+    </button>
+  );
+}
+
+export function DangerButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button className={`${btnBase} bg-df-danger hover:bg-red-700 text-white ${className}`} {...props}>
+      {children}
+    </button>
+  );
+}
+
+export function SecondaryButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      className={`${btnBase} bg-df-surface hover:bg-df-border text-df-text border border-df-border ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function SuccessButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button className={`${btnBase} bg-df-success hover:bg-green-700 text-white ${className}`} {...props}>
+      {children}
+    </button>
+  );
+}
 
 export function Button({
-  children,
   variant = 'primary',
   size = 'md',
-  disabled = false,
-  type = 'button',
-  onClick,
   className = '',
-}: {
-  children: React.ReactNode;
-  variant?: keyof typeof buttonVariants;
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
-  disabled?: boolean;
-  type?: 'button' | 'submit' | 'reset';
-  onClick?: () => void;
-  className?: string;
 }) {
-  const sizes = {
+  const variantStyles = {
+    primary: 'bg-df-nav text-white hover:bg-df-nav-hover border-transparent',
+    secondary: 'bg-df-surface text-df-text hover:bg-df-border border-df-border',
+    danger: 'bg-df-danger text-white hover:bg-red-700 border-transparent',
+    ghost: 'bg-transparent text-df-text-muted hover:text-df-text hover:bg-df-surface border-transparent',
+  };
+
+  const sizeStyles = {
     sm: 'px-2.5 py-1 text-xs',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-5 py-2.5 text-sm',
+    md: 'px-3.5 py-2 text-sm',
+    lg: 'px-4 py-2.5 text-base',
   };
 
   return (
     <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className={`
-        inline-flex items-center justify-center font-medium rounded
-        transition-colors duration-100
-        disabled:opacity-50 disabled:cursor-not-allowed
-        ${buttonVariants[variant]} ${sizes[size]} ${className}
-      `}
+      className={`inline-flex items-center justify-center font-medium rounded border transition-colors duration-100 disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      {...props}
     >
       {children}
     </button>
@@ -145,100 +207,77 @@ export function Button({
 export function Input({
   label,
   error,
+  className = '',
   ...props
-}: {
+}: React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   error?: string;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+}) {
   return (
-    <div className="space-y-1">
-      {label && <label className="block text-sm font-medium text-df-text-muted">{label}</label>}
+    <div className="w-full">
+      {label && <label className="block text-xs font-medium text-df-text-muted mb-1">{label}</label>}
       <input
+        className={`w-full px-3 py-1.5 bg-df-surface border border-df-border rounded text-xs text-df-text placeholder-df-text-dim focus:outline-none focus:border-df-nav transition-colors ${
+          error ? 'border-df-danger' : ''
+        } ${className}`}
         {...props}
-        className={`
-          w-full px-3 py-2 rounded border text-sm
-          bg-df-bg text-df-text placeholder-df-text-dim
-          focus:outline-none focus:ring-1 focus:ring-df-nav focus:border-df-nav
-          ${error ? 'border-df-danger' : 'border-df-border'}
-          ${props.className ?? ''}
-        `}
       />
-      {error && <p className="text-xs text-df-danger">{error}</p>}
+      {error && <p className="text-xs text-df-danger mt-1">{error}</p>}
     </div>
   );
 }
 
-// ── DataTable (shell) ──
-export function DataTable({
-  headers,
+// ── Select ──
+export function Select({
+  label,
   children,
-  emptyMessage = 'No data available',
-  isEmpty = false,
-}: {
-  headers: string[];
-  children: React.ReactNode;
-  emptyMessage?: string;
-  isEmpty?: boolean;
+  error,
+  className = '',
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement> & {
+  label?: string;
+  error?: string;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-df-border">
-            {headers.map((h) => (
-              <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-df-text-muted uppercase tracking-wider">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-df-border">
-          {isEmpty ? (
-            <tr>
-              <td colSpan={headers.length} className="px-4 py-8 text-center text-df-text-dim">
-                {emptyMessage}
-              </td>
-            </tr>
-          ) : (
-            children
-          )}
-        </tbody>
-      </table>
+    <div className="w-full">
+      {label && <label className="block text-xs font-medium text-df-text-muted mb-1">{label}</label>}
+      <select
+        className={`w-full px-3 py-1.5 bg-df-surface border border-df-border rounded text-xs text-df-text focus:outline-none focus:border-df-nav transition-colors ${
+          error ? 'border-df-danger' : ''
+        } ${className}`}
+        {...props}
+      >
+        {children}
+      </select>
+      {error && <p className="text-xs text-df-danger mt-1">{error}</p>}
     </div>
   );
 }
 
-// ── Skeleton ──
-export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-df-border rounded ${className}`} />;
-}
-
-// ── Modal ──
-export function Modal({
-  isOpen,
-  onClose,
-  title,
-  children,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!isOpen) return null;
-
+// ── Spinner ──
+export function Spinner() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-df-surface border border-df-border rounded-lg shadow-xl max-w-lg w-full mx-4">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-df-border">
-          <h3 className="text-base font-semibold text-df-text">{title}</h3>
-          <button onClick={onClose} className="text-df-text-dim hover:text-df-text transition-colors">
-            ✕
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
+    <div className="flex items-center justify-center p-8">
+      <div className="w-6 h-6 border-2 border-df-border border-t-df-nav rounded-full animate-spin" />
     </div>
   );
+}
+
+// ── Formatters ──
+
+export function formatCents(cents: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+}
+
+export function formatBps(bps: number): string {
+  return `${(bps / 100).toFixed(1)}%`;
+}
+
+// ── Additional UI Helpers ──
+export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-df-surface border border-df-border rounded-md p-4 ${className}`}>{children}</div>;
+}
+
+export function Badge({ children, variant = 'neutral', className = '' }: { children: React.ReactNode; variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral'; className?: string }) {
+  return <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border ${badgeColors[variant]} ${className}`}>{children}</span>;
 }

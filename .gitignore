@@ -16,7 +16,7 @@ build/
 docs/
 *.pdf
 *.png
-DealFlow360_4_Phase_Core_Development_Blueprint.md
+*.md
 dealflow360_text.txt
 
 # Environment & Secrets
