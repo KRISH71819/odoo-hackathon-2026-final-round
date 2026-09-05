@@ -56,7 +56,7 @@ export default function AdminConfigPage() {
     const [discountResponse, subscriptionResponse, usersResponse] = await Promise.all([
       api.get<any>('/discount-rules'),
       api.get<any>('/billing/subscription-plans'),
-      currentUser?.role === 'ADMIN' ? api.get<any>('/auth/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+      currentUser?.role !== 'CUSTOMER' ? api.get<any>('/auth/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     ]);
 
     setDiscounts(
@@ -93,7 +93,7 @@ export default function AdminConfigPage() {
   return (
     <div>
       <PageHeader
-        title="Admin Configuration"
+        title="Configuration"
         subtitle="Configure pricing governance, warehouses, subscriptions and price lists"
       />
 
@@ -460,8 +460,8 @@ export default function AdminConfigPage() {
             ))}
           </div>
         </Panel>
-        {/* Admin: User Management */}
-        {currentUser?.role === 'ADMIN' && (
+        {/* Internal: User Management */}
+        {currentUser?.role !== 'CUSTOMER' && (
           <Panel title="User Management" className="lg:col-span-2">
             <div className="space-y-4">
               <p className="text-xs text-charcoal-400">

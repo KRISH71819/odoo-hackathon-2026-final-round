@@ -55,11 +55,11 @@ authRoutes.get(
   },
 );
 
-// Admin-only: Create user with role
+// Internal staff: Create user with role
 authRoutes.post(
   '/users',
   authMiddleware,
-  requireRole('ADMIN'),
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP', 'FINANCE_OPS'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password, name, role } = req.body;
@@ -71,11 +71,11 @@ authRoutes.post(
   },
 );
 
-// Admin-only: Get all users
+// Internal staff: Get all users
 authRoutes.get(
   '/users',
   authMiddleware,
-  requireRole('ADMIN'),
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP', 'FINANCE_OPS'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const users = await authService.getAllUsers();
@@ -119,7 +119,7 @@ authRoutes.get(
 authRoutes.patch(
   '/customers/:id/tier',
   authMiddleware,
-  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP', 'FINANCE_OPS'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { tier } = req.body;
@@ -135,7 +135,7 @@ authRoutes.patch(
 authRoutes.put(
   '/customers/:id/tier',
   authMiddleware,
-  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP', 'FINANCE_OPS'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { tier } = req.body;
@@ -151,7 +151,7 @@ authRoutes.put(
 authRoutes.post(
   '/customers',
   authMiddleware,
-  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP', 'FINANCE_OPS'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const customer = await authService.createCustomer(req.body);

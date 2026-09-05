@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js';
 
-const ALL_INTERNAL: UserRole[] = [UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER];
+const ALL_INTERNAL: UserRole[] = [UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS];
 const MANAGERS: UserRole[] = [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS];
 
 interface NavItem {
@@ -42,7 +42,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { title: 'Approvals', url: '/approvals', icon: CheckSquare, roles: MANAGERS },
       { title: 'Deal Health', url: '/deal-health', icon: Activity, roles: MANAGERS },
-      { title: 'Configuration', url: '/configuration', icon: Settings, roles: [UserRole.ADMIN, UserRole.SALES_MANAGER] },
+      { title: 'Configuration', url: '/configuration', icon: Settings, roles: ALL_INTERNAL },
     ],
   },
   {

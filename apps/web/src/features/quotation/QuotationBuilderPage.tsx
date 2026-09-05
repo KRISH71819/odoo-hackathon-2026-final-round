@@ -9,11 +9,18 @@ import { useProducts } from '../catalog/useCatalog';
 import { PageHeader, StatusBadge, PrimaryButton, SecondaryButton, DangerButton, SuccessButton, Panel, NoticeStrip, Spinner, Input, Select, formatCents, formatBps } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useSuggestFulfillmentPlan, useQuotationFulfillmentPlan } from '../fulfillment/useFulfillment';
+import { useAuth } from '../../lib/auth';
+import { useApprovalAction } from '../approval/useApprovals';
+import { UserRole } from '@dealflow360/contracts';
+
 
 export default function QuotationBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const approvalAction = useApprovalAction();
+  const isSalesRep = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const { data: quoteData, isLoading } = useQuotation(id!);
   const { data: productsData } = useProducts();
   const { data: suggestionsData } = useUpsellSuggestions(id!);
@@ -37,6 +44,8 @@ export default function QuotationBuilderPage() {
   const [orderDiscount, setOrderDiscount] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [approvalReason, setApprovalReason] = useState('');
+  const [governanceLoading, setGovernanceLoading] = useState(false);
   const [staffReplyText, setStaffReplyText] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
 
@@ -174,6 +183,46 @@ export default function QuotationBuilderPage() {
       alert('Could not generate fulfillment plan: ' + (e?.message || 'Error'));
     }
   };
+
+  // Active approval request matching current quote stage and user role
+  const activeApproval = quote.approvalRequests?.find((ar: any) => {
+    if (ar.status !== 'PENDING') return false;
+    if (quote.status === 'PENDING_MANAGER' && (ar.role === 'SALES_MANAGER' || ar.role === 'MANAGER')) return true;
+    if (quote.status === 'PENDING_FINANCE' && (ar.role === 'FINANCE' || ar.role === 'FINANCE_OPS')) return true;
+    return false;
+  });
+
+  const canApprove = Boolean(
+    activeApproval && (
+      user?.role === UserRole.ADMIN ||
+      (quote.status === 'PENDING_MANAGER' && user?.role === UserRole.SALES_MANAGER) ||
+      (quote.status === 'PENDING_FINANCE' && user?.role === UserRole.FINANCE_OPS)
+    )
+  );
+
+  const handleGovernanceAction = async (actionType: 'APPROVE' | 'REJECT' | 'RETURN_FOR_REVISION') => {
+    if (!activeApproval?.id) return;
+    if ((actionType === 'REJECT' || actionType === 'RETURN_FOR_REVISION') && !approvalReason.trim()) {
+      alert(`A reason is required to ${actionType === 'REJECT' ? 'reject' : 'return for revision'}.`);
+      return;
+    }
+    setGovernanceLoading(true);
+    try {
+      await approvalAction.mutateAsync({
+        id: activeApproval.id,
+        data: { action: actionType, reason: approvalReason.trim() || undefined },
+      });
+      setApprovalReason('');
+      await queryClient.invalidateQueries({ queryKey: ['quotation', id] });
+      await queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      await queryClient.invalidateQueries({ queryKey: ['approvals'] });
+    } catch (err: any) {
+      alert('Governance action failed: ' + (err?.message || 'Error'));
+    } finally {
+      setGovernanceLoading(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader title={quote.title}>
@@ -206,6 +255,113 @@ export default function QuotationBuilderPage() {
         )}
         <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
       </PageHeader>
+
+      {/* Visual Lifecycle Stepper */}
+      <div className="bg-charcoal-900 border border-charcoal-700 rounded-lg p-3 mb-4 overflow-x-auto">
+        <div className="flex items-center justify-between min-w-[720px] gap-2 text-xs">
+          {[
+            { key: 'DRAFT', label: '1. Draft', active: quote.status === 'DRAFT' || quote.status === 'REVISION', done: !['DRAFT', 'REVISION', 'REJECTED'].includes(quote.status) },
+            { key: 'PENDING_MANAGER', label: '2. Manager Review', active: quote.status === 'PENDING_MANAGER', done: ['PENDING_FINANCE', 'APPROVED', 'FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION', 'CONFIRMED', 'BILLED', 'PAID'].includes(quote.status) },
+            { key: 'PENDING_FINANCE', label: '3. Finance Review', active: quote.status === 'PENDING_FINANCE', done: ['APPROVED', 'FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION', 'CONFIRMED', 'BILLED', 'PAID'].includes(quote.status) },
+            { key: 'APPROVED', label: '4. Approved', active: quote.status === 'APPROVED', done: ['FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION', 'CONFIRMED', 'BILLED', 'PAID'].includes(quote.status) },
+            { key: 'OPERATIONS', label: '5. Fulfillment & Portal', active: ['FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION'].includes(quote.status), done: ['CONFIRMED', 'BILLED', 'PAID'].includes(quote.status) },
+            { key: 'CONFIRMED', label: '6. Confirmed & Billed', active: ['CONFIRMED', 'BILLED', 'PAID'].includes(quote.status), done: ['BILLED', 'PAID'].includes(quote.status) },
+          ].map((stage, idx, arr) => (
+            <React.Fragment key={stage.key}>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded font-medium transition-all ${
+                stage.active
+                  ? 'bg-accent/20 border border-accent text-accent font-semibold shadow-sm'
+                  : stage.done
+                  ? 'bg-success/10 border border-success/30 text-success'
+                  : 'bg-charcoal-800/50 border border-charcoal-700/50 text-charcoal-500'
+              }`}>
+                <span>{stage.done ? '✓' : stage.active ? '●' : '○'}</span>
+                <span>{stage.label}</span>
+              </div>
+              {idx < arr.length - 1 && (
+                <div className={`h-0.5 flex-1 ${stage.done ? 'bg-success/50' : 'bg-charcoal-700'}`} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* State Notices */}
+      {quote.status === 'REJECTED' && (
+        <NoticeStrip variant="danger" className="mb-4">
+          ✕ REJECTED: This quotation was rejected during governance approval and cannot be modified or advanced.
+        </NoticeStrip>
+      )}
+      {quote.status === 'REVISION' && (
+        <NoticeStrip variant="warning" className="mb-4">
+          ↩ RETURNED FOR REVISION: The reviewer requested adjustments. You can now modify the line items and re-submit for approval.
+        </NoticeStrip>
+      )}
+
+      {/* Governance Review Action Box (Visible to authorized approvers for current stage) */}
+      {canApprove && (
+        <div className="bg-charcoal-800 border-2 border-accent/70 rounded-lg p-4 mb-4 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-white">
+                ⚖️ Governance Decision Required
+              </span>
+              <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded font-medium">
+                {quote.status === 'PENDING_MANAGER' ? 'Sales Manager Step' : 'Finance Head Step'}
+              </span>
+            </div>
+            <span className="text-xs text-charcoal-300">
+              Risk: <strong className={displayRiskLevel === 'HIGH' ? 'text-danger' : 'text-warning'}>{displayRiskLevel}</strong> ({displayRiskScore} bps)
+            </span>
+          </div>
+          <p className="text-xs text-charcoal-400 mb-3">
+            {quote.status === 'PENDING_MANAGER'
+              ? 'As Sales Manager, review quotation discounts and margin. Approve to advance, return for revision, or reject.'
+              : 'As Finance Head, conduct financial review on this high-risk quotation. Your decision will finalize approval or return to the sales team.'}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex-1 w-full">
+              <Input
+                placeholder="Reason or feedback (required for reject / return for revision)..."
+                value={approvalReason}
+                onChange={(e) => setApprovalReason(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <SuccessButton
+                onClick={() => handleGovernanceAction('APPROVE')}
+                disabled={governanceLoading}
+                className="flex-1 sm:flex-initial"
+              >
+                {governanceLoading ? 'Processing…' : '✓ Approve'}
+              </SuccessButton>
+              <SecondaryButton
+                onClick={() => handleGovernanceAction('RETURN_FOR_REVISION')}
+                disabled={governanceLoading}
+                className="flex-1 sm:flex-initial text-warning hover:bg-warning/10"
+              >
+                ↩ Return for Revision
+              </SecondaryButton>
+              <DangerButton
+                onClick={() => handleGovernanceAction('REJECT')}
+                disabled={governanceLoading}
+                className="flex-1 sm:flex-initial"
+              >
+                ✗ Reject
+              </DangerButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!canApprove && (quote.status === 'PENDING_MANAGER' || quote.status === 'PENDING_FINANCE') && (
+        <NoticeStrip variant="info" className="mb-4">
+          ⏳ Awaiting Governance Approval:{' '}
+          {quote.status === 'PENDING_MANAGER'
+            ? 'Quotation is currently under review by Sales Manager.'
+            : 'Manager approved! High-risk deal is currently under secondary review by Finance Head.'}
+        </NoticeStrip>
+      )}
 
       {/* Success/Error Notices */}
       {submitSuccess && (
@@ -535,35 +691,41 @@ export default function QuotationBuilderPage() {
 
             {/* Add Line Form */}
             {isEditable && (
-              <div className="flex gap-2 mt-3 items-end">
-                <div className="flex-1">
-                  <Select label="Product" value={selectedProductId} onChange={(e) => setSelectedProductId(e.target.value)}>
-                    <option value="">Select product...</option>
-                    {products.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name} — {formatCents(p.unitPrice)}</option>
-                    ))}
-                  </Select>
-                </div>
-                {selectedProductId && (products.find((p: any) => p.id === selectedProductId)?.variants?.length ?? 0) > 0 && (
-                  <div className="w-40">
-                    <Select label="Variant" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
-                      <option value="">Base</option>
-                      {(products.find((p: any) => p.id === selectedProductId)?.variants || []).map((v: any) => (
-                        <option key={v.id} value={v.id}>{v.attribute}: {v.value} (+{formatCents(v.extraPrice)})</option>
+              isSalesRep ? (
+                <div className="flex gap-2 mt-3 items-end">
+                  <div className="flex-1">
+                    <Select label="Product" value={selectedProductId} onChange={(e) => setSelectedProductId(e.target.value)}>
+                      <option value="">Select product...</option>
+                      {products.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name} — {formatCents(p.unitPrice)}</option>
                       ))}
                     </Select>
                   </div>
-                )}
-                <div className="w-20">
-                  <Input label="Qty" type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} />
+                  {selectedProductId && (products.find((p: any) => p.id === selectedProductId)?.variants?.length ?? 0) > 0 && (
+                    <div className="w-40">
+                      <Select label="Variant" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
+                        <option value="">Base</option>
+                        {(products.find((p: any) => p.id === selectedProductId)?.variants || []).map((v: any) => (
+                          <option key={v.id} value={v.id}>{v.attribute}: {v.value} (+{formatCents(v.extraPrice)})</option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
+                  <div className="w-20">
+                    <Input label="Qty" type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} />
+                  </div>
+                  <div className="w-24">
+                    <Input label="Discount %" type="number" min={0} max={100} step={0.1} value={lineDiscount} onChange={(e) => setLineDiscount(parseFloat(e.target.value) || 0)} />
+                  </div>
+                  <PrimaryButton onClick={handleAddLine} disabled={!selectedProductId || addLine.isPending}>
+                    Add
+                  </PrimaryButton>
                 </div>
-                <div className="w-24">
-                  <Input label="Discount %" type="number" min={0} max={100} step={0.1} value={lineDiscount} onChange={(e) => setLineDiscount(parseFloat(e.target.value) || 0)} />
-                </div>
-                <PrimaryButton onClick={handleAddLine} disabled={!selectedProductId || addLine.isPending}>
-                  Add
-                </PrimaryButton>
-              </div>
+              ) : (
+                <p className="text-xs text-charcoal-400 mt-3 italic">
+                  Line editing is restricted to Sales Representatives.
+                </p>
+              )
             )}
           </Panel>
 
@@ -699,44 +861,56 @@ export default function QuotationBuilderPage() {
           </Panel>
 
           {/* Actions */}
-          {isEditable && quote.lines.length > 0 && (
-            <Panel>
-              <div className="mb-3">
-                <Input
-                  label="Order Discount %"
-                  type="number" min={0} max={100} step={0.1}
-                  value={orderDiscount ?? ((quote.orderDiscountBps || 0) / 100)}
-                  onChange={(e) => setOrderDiscount(parseFloat(e.target.value) || 0)}
-                  onBlur={() => updateQuotation.mutate({ id: quote.id, data: { orderDiscountBps: Math.round((orderDiscount ?? 0) * 100) } })}
-                />
-              </div>
-              {submitError && (
-                <div className="mb-2 p-2 rounded bg-danger/10 border border-danger/30 text-danger text-xs">
-                  {submitError}
-                </div>
-              )}
-              <SuccessButton className="w-full" onClick={handleSubmit} disabled={submitQuote.isPending}>
-                {submitQuote.isPending
-                  ? 'Submitting…'
-                  : quote.status === 'REVISION'
-                  ? '🔄 Re-submit for Approval'
-                  : 'Submit for Approval'}
-              </SuccessButton>
-              {quote.status === 'REVISION' && (
-                <p className="text-[11px] text-charcoal-400 text-center mt-2">
-                  Re-submitting recalculates discount risk & updates the approval chain.
-                </p>
-              )}
-            </Panel>
-          )}
+          {isEditable && (
+            isSalesRep ? (
+              <>
+                {quote.lines.length > 0 && (
+                  <Panel>
+                    <div className="mb-3">
+                      <Input
+                        label="Order Discount %"
+                        type="number" min={0} max={100} step={0.1}
+                        value={orderDiscount ?? ((quote.orderDiscountBps || 0) / 100)}
+                        onChange={(e) => setOrderDiscount(parseFloat(e.target.value) || 0)}
+                        onBlur={() => updateQuotation.mutate({ id: quote.id, data: { orderDiscountBps: Math.round((orderDiscount ?? 0) * 100) } })}
+                      />
+                    </div>
+                    {submitError && (
+                      <div className="mb-2 p-2 rounded bg-danger/10 border border-danger/30 text-danger text-xs">
+                        {submitError}
+                      </div>
+                    )}
+                    <SuccessButton className="w-full" onClick={handleSubmit} disabled={submitQuote.isPending}>
+                      {submitQuote.isPending
+                        ? 'Submitting…'
+                        : quote.status === 'REVISION'
+                        ? '🔄 Re-submit for Approval'
+                        : 'Submit for Approval'}
+                    </SuccessButton>
+                    {quote.status === 'REVISION' && (
+                      <p className="text-[11px] text-charcoal-400 text-center mt-2">
+                        Re-submitting recalculates discount risk & updates the approval chain.
+                      </p>
+                    )}
+                  </Panel>
+                )}
 
-          {/* Delete Draft */}
-          {quote.status === 'DRAFT' && (
-            <Panel>
-              <DangerButton className="w-full" onClick={handleDeleteDraft} disabled={deleteQuote.isPending}>
-                {deleteQuote.isPending ? 'Deleting…' : '🗑 Delete Draft'}
-              </DangerButton>
-            </Panel>
+                {/* Delete Draft */}
+                {quote.status === 'DRAFT' && (
+                  <Panel>
+                    <DangerButton className="w-full" onClick={handleDeleteDraft} disabled={deleteQuote.isPending}>
+                      {deleteQuote.isPending ? 'Deleting…' : '🗑 Delete Draft'}
+                    </DangerButton>
+                  </Panel>
+                )}
+              </>
+            ) : (
+              <Panel>
+                <p className="text-xs text-charcoal-400 italic">
+                  Only the assigned Sales Representative can modify discounts or submit this quotation for approval.
+                </p>
+              </Panel>
+            )
           )}
 
           {/* Upsell Suggestions Panel — always shown when editable */}

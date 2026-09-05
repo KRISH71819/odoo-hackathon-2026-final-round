@@ -84,7 +84,7 @@ governanceRoutes.get('/discount-rules', authMiddleware, async (_req: Request, re
   } catch (err) { next(err); }
 });
 
-governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
+governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { maxDiscountBps, description } = req.body;
     const rule = await governanceService.updateDiscountRule(req.params.id as string, maxDiscountBps, description);
@@ -92,7 +92,7 @@ governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole
   } catch (err) { next(err); }
 });
 
-governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
+governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { maxDiscountBps, description } = req.body;
     const rule = await governanceService.updateCategoryDiscountRule(req.params.id as string, maxDiscountBps, description);
