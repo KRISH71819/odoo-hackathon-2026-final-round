@@ -9,6 +9,7 @@
 @layer base {
   :root,
   .dark {
+    color-scheme: dark;
     --radius: 0.5rem;
     /* Pure Black & White / High Contrast Monochrome */
     --background: 0 0% 0%; /* #000000 pure black */
@@ -65,6 +66,17 @@
   background-color: #09090b !important;
   color: #ffffff !important;
   border-color: #27272a !important;
+}
+
+/* ── Native Select & Option Popup Styles ── */
+select {
+  color-scheme: dark;
+}
+
+select option,
+option {
+  background-color: #09090b !important;
+  color: #ffffff !important;
 }
 
 /* ── Scrollbar ── */
