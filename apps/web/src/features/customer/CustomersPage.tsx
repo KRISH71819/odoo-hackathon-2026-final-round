@@ -6,8 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { PageHeader, StatusBadge, PrimaryButton, Spinner, Panel } from '../../components/ui';
 import { useCreateQuotation } from '../quotation/useQuotations';
+import { useAuth } from '../../lib/auth';
+import { UserRole } from '@dealflow360/contracts';
 
 export default function CustomersPage() {
+  const { user } = useAuth();
+  const isSalesRep = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const navigate = useNavigate();
   const createQuotation = useCreateQuotation();
 
@@ -60,12 +64,16 @@ export default function CustomersPage() {
                       {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}
                     </td>
                     <td className="text-right">
-                      <PrimaryButton
-                        disabled={createQuotation.isPending}
-                        onClick={() => handleCreateQuote(c.id, c.name)}
-                      >
-                        + Create Quote
-                      </PrimaryButton>
+                      {isSalesRep ? (
+                        <PrimaryButton
+                          disabled={createQuotation.isPending}
+                          onClick={() => handleCreateQuote(c.id, c.name)}
+                        >
+                          + Create Quote
+                        </PrimaryButton>
+                      ) : (
+                        <span className="text-xs text-charcoal-500">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

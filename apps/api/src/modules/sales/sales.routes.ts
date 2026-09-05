@@ -45,7 +45,7 @@ salesRoutes.get('/quotations/:id', authMiddleware, async (req: Request, res: Res
 salesRoutes.post(
   '/quotations',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = CreateQuotationSchema.parse(req.body);

@@ -15,9 +15,10 @@ import {
   Select,
   Input,
 } from '../../components/ui';
-import { QuotationStatus } from '@dealflow360/contracts';
+import { QuotationStatus, UserRole } from '@dealflow360/contracts';
 import { api } from '../../lib/api';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../lib/auth';
 
 interface PipelineStage {
   id: string;
@@ -31,9 +32,12 @@ const PIPELINE_STAGES: PipelineStage[] = [
   { id: 'approved', name: 'Approved / Ready', statuses: [QuotationStatus.APPROVED, QuotationStatus.FULFILLMENT_READY] },
   { id: 'negotiation', name: 'Under Negotiation', statuses: [QuotationStatus.SENT_TO_CUSTOMER, QuotationStatus.UNDER_NEGOTIATION] },
   { id: 'confirmed', name: 'Confirmed / Won', statuses: [QuotationStatus.CONFIRMED, QuotationStatus.BILLED, QuotationStatus.PAID] },
+  { id: 'rejected', name: 'Rejected', statuses: [QuotationStatus.REJECTED] },
 ];
 
 export default function QuotationListPage() {
+  const { user } = useAuth();
+  const isSalesRep = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'pipeline'>('list');
   const [statusFilter, setStatusFilter] = useState('');
@@ -98,9 +102,11 @@ export default function QuotationListPage() {
                 Pipeline (Kanban)
               </button>
             </div>
-            <PrimaryButton onClick={() => setIsModalOpen(true)}>
-              + New Quotation
-            </PrimaryButton>
+            {isSalesRep && (
+              <PrimaryButton onClick={() => setIsModalOpen(true)}>
+                + New Quotation
+              </PrimaryButton>
+            )}
           </div>
         }
       />
@@ -108,7 +114,7 @@ export default function QuotationListPage() {
       {/* Status filter tabs for List view */}
       {viewMode === 'list' && (
         <div className="flex gap-1 mb-4 overflow-x-auto">
-          {['', ...Object.values(QuotationStatus).slice(0, 8)].map((s) => (
+          {['', ...Object.values(QuotationStatus)].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
