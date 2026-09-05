@@ -724,7 +724,7 @@ export default function QuotationBuilderPage() {
         <div className="lg:col-span-2">
           <Panel title="Quotation Lines">
             <div className="overflow-x-auto">
-              <table className="data-table">
+              <table className="data-table min-w-[1180px]">
                 <thead>
                   <tr>
                     <th>Product</th>
@@ -736,7 +736,7 @@ export default function QuotationBuilderPage() {
                     <th className="text-right">Tax</th>
                     <th className="text-right">Total</th>
                     <th className="text-right">Margin</th>
-                    {isEditable && <th className="text-right">Actions</th>}
+                    {isEditable && <th className="text-right min-w-[120px] whitespace-nowrap">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -838,7 +838,7 @@ export default function QuotationBuilderPage() {
                           {formatBps(isEditing ? previewMarginBps : line.marginPercent)}
                         </td>
                         {isEditable && (
-                          <td className="text-right">
+                          <td className="text-right min-w-[120px] whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
@@ -859,15 +859,17 @@ export default function QuotationBuilderPage() {
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => handleStartEditLine(line)}
-                                  className="px-2 py-1 text-xs font-medium rounded bg-charcoal-800 border border-charcoal-700 text-accent hover:bg-accent/10 hover:border-accent/30 transition-all flex items-center gap-1"
+                                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-white bg-white px-3 py-1.5 text-xs font-semibold text-black shadow-sm transition-colors hover:bg-neutral-200 hover:border-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                                   title="Edit item quantity & specific discount"
                                 >
-                                  ✏ Edit
+                                  <span aria-hidden="true">✏</span>
+                                  <span>Edit</span>
                                 </button>
                                 <button
                                   onClick={() => removeLine.mutate({ quotationId: id!, lineId: line.id })}
-                                  className="text-charcoal-400 hover:text-danger text-xs px-1.5 py-1 rounded hover:bg-danger/10 transition-all"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-700 text-sm text-neutral-300 transition-colors hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300"
                                   title="Remove item"
+                                  aria-label={`Remove ${line.productName}`}
                                 >
                                   ✕
                                 </button>

@@ -25,6 +25,10 @@ export function useQuotation(id: string) {
     queryKey: KEYS.quotation(id),
     queryFn: () => api.get<any>(`/quotations/${id}`),
     enabled: !!id,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   });
 }
 
@@ -130,5 +134,9 @@ export function useAuditTrail(quotationId: string) {
     queryKey: KEYS.auditTrail(quotationId),
     queryFn: () => api.get<any>(`/quotations/${quotationId}/audit-trail`),
     enabled: !!quotationId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   });
 }

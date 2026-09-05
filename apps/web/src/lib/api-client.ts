@@ -3,14 +3,17 @@
 
 const API_BASE = '/api';
 
-let authToken: string | null = localStorage.getItem('df_token');
+// Keep authentication isolated per browser tab.
+// localStorage is shared across tabs, which caused a Manager login in one
+// tab to replace the Sales Rep session in another tab.
+let authToken: string | null = sessionStorage.getItem('df_token');
 
 export function setToken(token: string | null) {
   authToken = token;
   if (token) {
-    localStorage.setItem('df_token', token);
+    sessionStorage.setItem('df_token', token);
   } else {
-    localStorage.removeItem('df_token');
+    sessionStorage.removeItem('df_token');
   }
 }
 
