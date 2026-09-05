@@ -1,7 +1,7 @@
 // ── DealFlow360 – Auth Service ──
 // Login, signup, me, and portal token management.
 
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../shared/prisma.js';
 import { UnauthorizedError, ConflictError, NotFoundError } from '../../shared/errors.js';
@@ -39,7 +39,7 @@ export async function login(email: string, password: string): Promise<LoginResul
     role: user.role,
   };
 
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
 
   return {
     token,
@@ -75,7 +75,7 @@ export async function signup(
     role: user.role,
   };
 
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
 
   return {
     token,

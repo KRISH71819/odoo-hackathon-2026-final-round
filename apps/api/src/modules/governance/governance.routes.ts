@@ -1,13 +1,102 @@
-// ── DealFlow360 – Governance Module (Phase 2 skeleton) ──
-import { Router, Request, Response } from 'express';
+// ── Governance Routes ────────────────────────────────────────
+// HTTP translation for approval operations.
+
+import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../../middleware/auth.middleware.js';
-import { sendSuccess } from '../../shared/response.js';
+import { requireRole } from '../../middleware/rbac.middleware.js';
+import { UserRole, ApprovalActionInputSchema } from '@dealflow360/contracts';
+import * as governanceService from './governance.service.js';
 
 export const governanceRoutes = Router();
 
-governanceRoutes.use(authMiddleware);
+// ── Pending Approvals ────────────────────────────────────────
 
-// Placeholder - Phase 2 will implement discount risk and approvals
-governanceRoutes.get('/', (_req: Request, res: Response) => {
-  sendSuccess(res, { message: 'Governance module - implemented in Phase 2' });
+governanceRoutes.get(
+  '/approvals',
+  authMiddleware,
+  requireRole(UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.ADMIN),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const approvals = await governanceService.getPendingApprovals(req.user!.role);
+      res.json({ data: approvals });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Approval Detail ──────────────────────────────────────────
+
+governanceRoutes.get(
+  '/approvals/:id',
+  authMiddleware,
+  requireRole(UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.ADMIN),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const approval = await governanceService.getApprovalDetail(req.params.id as string);
+      res.json({ data: approval });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Approval Action ──────────────────────────────────────────
+
+governanceRoutes.post(
+  '/approvals/:id/action',
+  authMiddleware,
+  requireRole(UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.ADMIN),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const input = ApprovalActionInputSchema.parse(req.body);
+      let result;
+
+      switch (input.action) {
+        case 'APPROVE':
+          result = await governanceService.approveQuote(req.params.id as string, req.user!.userId, input.reason);
+          break;
+        case 'REJECT':
+          result = await governanceService.rejectQuote(req.params.id as string, req.user!.userId, input.reason!);
+          break;
+        case 'RETURN_FOR_REVISION':
+          result = await governanceService.returnQuoteForRevision(req.params.id as string, req.user!.userId, input.reason!);
+          break;
+      }
+
+      res.json({ data: result });
+    } catch (err) { next(err); }
+  },
+);
+
+// ── Audit Trail ──────────────────────────────────────────────
+
+governanceRoutes.get('/quotations/:id/audit-trail', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const trail = await governanceService.getQuotationAuditTrail(req.params.id as string);
+    res.json({ data: trail });
+  } catch (err) { next(err); }
 });
+
+// ── Discount Rules ───────────────────────────────────────────
+
+governanceRoutes.get('/discount-rules', authMiddleware, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rules = await governanceService.getDiscountRules();
+    res.json({ data: rules });
+  } catch (err) { next(err); }
+});
+
+governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { maxDiscountBps, description } = req.body;
+    const rule = await governanceService.updateDiscountRule(req.params.id as string, maxDiscountBps, description);
+    res.json({ data: rule });
+  } catch (err) { next(err); }
+});
+
+governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { maxDiscountBps, description } = req.body;
+    const rule = await governanceService.updateCategoryDiscountRule(req.params.id as string, maxDiscountBps, description);
+    res.json({ data: rule });
+  } catch (err) { next(err); }
+});
+
+export default governanceRoutes;

@@ -70,3 +70,22 @@ authRoutes.post(
     }
   },
 );
+
+// GET /api/auth/customers (requires auth)
+authRoutes.get(
+  '/customers',
+  authMiddleware,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { prisma } = await import('../../shared/prisma.js');
+      const customers = await prisma.user.findMany({
+        where: { role: 'CUSTOMER' },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: 'asc' },
+      });
+      sendSuccess(res, customers);
+    } catch (err) {
+      next(err);
+    }
+  },
+);

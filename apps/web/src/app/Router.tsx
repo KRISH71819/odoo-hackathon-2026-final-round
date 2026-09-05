@@ -1,41 +1,24 @@
 // ── DealFlow360 – Application Router ──
 
-import React, { lazy, Suspense } from 'react';
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './Layout.js';
 import { LoginPage } from '../features/auth/LoginPage.js';
 import { DashboardPage } from '../features/dashboard/DashboardPage.js';
 import { PlaceholderPage } from '../features/shared/PlaceholderPage.js';
+import ProductListPage from '../features/catalog/ProductListPage.js';
+import QuotationListPage from '../features/quotation/QuotationListPage.js';
+import QuotationBuilderPage from '../features/quotation/QuotationBuilderPage.js';
+import ApprovalListPage from '../features/approval/ApprovalListPage.js';
+import ApprovalDetailPage from '../features/approval/ApprovalDetailPage.js';
 
-// ── Placeholder route configs ──
+// ── Placeholder route configs for future phases ──
 const placeholders = {
   customers: {
     title: 'Customers',
     phase: 2,
     description: 'Customer management with tier tracking (Bronze, Silver, Gold).',
     features: ['Customer list with tier badges', 'Customer detail with quotation history', 'Tier-based pricing rules'],
-  },
-  quotations: {
-    title: 'Quotations',
-    phase: 2,
-    description: 'Quotation list, pipeline view, and quotation builder with live totals and margin.',
-    features: [
-      'Quotation pipeline (Kanban-style)',
-      'Quotation builder with product lines',
-      'Line/order discounts with live margin indicator',
-      'Auto-routing to approval based on risk score',
-    ],
-  },
-  approvals: {
-    title: 'Approvals',
-    phase: 2,
-    description: 'Approval queue with blended risk scores and audit trail.',
-    features: [
-      'Approval queue with risk score display',
-      'Approve, reject, or return-for-revision actions',
-      'Full audit trail per quotation',
-      'Multi-step approval (Manager → Finance)',
-    ],
   },
   fulfillment: {
     title: 'Fulfillment & Stock',
@@ -92,17 +75,6 @@ const placeholders = {
       'KPI cards with live data',
     ],
   },
-  products: {
-    title: 'Product Catalog',
-    phase: 2,
-    description: 'Product and price list management (backend configuration area).',
-    features: [
-      'Product CRUD with variants',
-      'Price list management per tier',
-      'Category and type classification',
-      'Discount tier and approval chain setup',
-    ],
-  },
 };
 
 export function AppRouter() {
@@ -114,6 +86,15 @@ export function AppRouter() {
       {/* Protected routes */}
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
+        
+        {/* Phase 2 implemented routes */}
+        <Route path="products" element={<ProductListPage />} />
+        <Route path="quotations" element={<QuotationListPage />} />
+        <Route path="quotations/:id" element={<QuotationBuilderPage />} />
+        <Route path="approvals" element={<ApprovalListPage />} />
+        <Route path="approvals/:id" element={<ApprovalDetailPage />} />
+
+        {/* Placeholder routes for remaining phases */}
         {Object.entries(placeholders).map(([path, config]) => (
           <Route
             key={path}

@@ -3,7 +3,7 @@
 // Run: npx tsx prisma/seed.ts
 
 import { PrismaClient } from '@prisma/client';
-import { hash } from 'bcrypt';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
@@ -27,6 +27,7 @@ async function main() {
   await prisma.quotationLine.deleteMany();
   await prisma.quotation.deleteMany();
   await prisma.stock.deleteMany();
+  await prisma.upsellRule.deleteMany();
   await prisma.priceListItem.deleteMany();
   await prisma.priceList.deleteMany();
   await prisma.productVariant.deleteMany();
@@ -91,6 +92,7 @@ async function main() {
       passwordHash: defaultPassword,
       name: 'Dave Wilson (Acme Corp)',
       role: 'CUSTOMER',
+      tier: 'BRONZE',
     },
   });
 
@@ -101,6 +103,7 @@ async function main() {
       passwordHash: defaultPassword,
       name: 'Eve Santos (Beta Industries)',
       role: 'CUSTOMER',
+      tier: 'SILVER',
     },
   });
 
@@ -111,6 +114,7 @@ async function main() {
       passwordHash: defaultPassword,
       name: 'Frank Lee (Gamma Ltd)',
       role: 'CUSTOMER',
+      tier: 'GOLD',
     },
   });
 
@@ -443,6 +447,188 @@ async function main() {
   });
 
   console.log('  ✓ Created 3 subscription plans');
+
+  // ── Upsell Rules ──
+  await prisma.upsellRule.createMany({
+    data: [
+      {
+        id: 'ur-dock',
+        sourceProductId: 'prod-laptop',
+        suggestedProductId: 'prod-dock',
+        reason: '90% of laptop deployments include a Thunderbolt dock',
+        minMarginBps: 2000,
+        isPromotion: false,
+        isActive: true,
+      },
+      {
+        id: 'ur-support',
+        sourceProductId: 'prod-laptop',
+        suggestedProductId: 'prod-support',
+        reason: 'Mission-critical laptops require 24/7 dedicated enterprise support',
+        minMarginBps: 2500,
+        isPromotion: true,
+        isActive: true,
+      },
+      {
+        id: 'ur-keyboard',
+        sourceProductId: 'prod-monitor',
+        suggestedProductId: 'prod-keyboard',
+        reason: 'Complete workstation bundle accessory',
+        minMarginBps: 1500,
+        isPromotion: false,
+        isActive: true,
+      },
+    ],
+  });
+
+  console.log('  ✓ Created 3 upsell suggestion rules');
+
+  // ── Sample Quotations (Phase 2 Demo) ──
+  const q1 = await prisma.quotation.create({
+    data: {
+      id: 'q-1001',
+      number: 'Q-1001',
+      title: 'Acme Hardware Refresh',
+      customerId: 'user-customer-acme',
+      salesRepId: 'user-rep',
+      status: 'DRAFT',
+      subtotal: 359600, // 2x Laptop ($1299) + 2x Monitor ($499)
+      taxTotal: 30566,
+      total: 390166,
+      orderDiscountBps: 0,
+      marginPercent: 3200,
+      riskScore: 0,
+      riskLevel: 'NONE',
+      notes: 'Initial proposal for quarterly office upgrade',
+      lines: {
+        create: [
+          {
+            id: 'ql-1',
+            productId: 'prod-laptop',
+            productName: 'ThinkPad X1 Carbon Gen 12',
+            productCategory: 'HARDWARE',
+            quantity: 2,
+            unitPrice: 129900,
+            costPrice: 85000,
+            discountBps: 0,
+            taxRate: 850,
+            subtotal: 259800,
+            taxAmount: 22083,
+            total: 281883,
+            marginPercent: 3456,
+            sortOrder: 0,
+          },
+          {
+            id: 'ql-2',
+            productId: 'prod-monitor',
+            productName: 'Dell UltraSharp 27" 4K Monitor',
+            productCategory: 'HARDWARE',
+            quantity: 2,
+            unitPrice: 49900,
+            costPrice: 32000,
+            discountBps: 0,
+            taxRate: 850,
+            subtotal: 99800,
+            taxAmount: 8483,
+            total: 108283,
+            marginPercent: 3587,
+            sortOrder: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  const q2 = await prisma.quotation.create({
+    data: {
+      id: 'q-1002',
+      number: 'Q-1002',
+      title: 'Beta Corp Expansion Bundle',
+      customerId: 'user-customer-beta',
+      salesRepId: 'user-rep',
+      status: 'PENDING_MANAGER',
+      subtotal: 659500,
+      totalDiscount: 65950,
+      taxTotal: 50451,
+      total: 644001,
+      orderDiscountBps: 0,
+      marginPercent: 2800,
+      riskScore: 350,
+      riskLevel: 'LOW',
+      notes: 'Requested 15% discount on software training & hardware bundle',
+      lines: {
+        create: [
+          {
+            id: 'ql-3',
+            productId: 'prod-laptop',
+            productName: 'ThinkPad X1 Carbon Gen 12',
+            productCategory: 'HARDWARE',
+            quantity: 4,
+            unitPrice: 126700, // Silver tier price
+            costPrice: 85000,
+            discountBps: 1000, // 10% discount
+            taxRate: 850,
+            subtotal: 506800,
+            taxAmount: 38770,
+            total: 494890,
+            marginPercent: 3100,
+            sortOrder: 0,
+          },
+          {
+            id: 'ql-4',
+            productId: 'prod-training',
+            productName: 'Team Training Workshop',
+            productCategory: 'SERVICE',
+            quantity: 1,
+            unitPrice: 120000,
+            costPrice: 60000,
+            discountBps: 1200, // 12% discount (exceeds 10% limit!)
+            taxRate: 850,
+            subtotal: 120000,
+            taxAmount: 8976,
+            total: 114576,
+            marginPercent: 4300,
+            sortOrder: 1,
+          },
+        ],
+      },
+      approvalRequests: {
+        create: [
+          {
+            id: 'ar-1',
+            step: 1,
+            role: 'SALES_MANAGER',
+            status: 'PENDING',
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        quotationId: 'q-1001',
+        userId: 'user-rep',
+        action: 'QUOTATION_CREATED',
+        details: 'Quotation created by Alice Johnson',
+      },
+      {
+        quotationId: 'q-1002',
+        userId: 'user-rep',
+        action: 'QUOTATION_CREATED',
+        details: 'Quotation created for Beta Corp',
+      },
+      {
+        quotationId: 'q-1002',
+        userId: 'user-rep',
+        action: 'QUOTATION_SUBMITTED',
+        details: 'Submitted for manager approval. Risk: LOW',
+      },
+    ],
+  });
+
+  console.log('  ✓ Created sample quotations (Q-1001 DRAFT, Q-1002 PENDING_MANAGER) with lines and approval requests');
 
   // ── Summary ──
   console.log('\n✅ Seed complete!\n');

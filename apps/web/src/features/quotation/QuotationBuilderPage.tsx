@@ -1,0 +1,288 @@
+// ── Quotation Builder Page ───────────────────────────────────
+// The core builder UI with lines, totals, risk, and upsell.
+
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuotation, useAddLine, useUpdateLine, useRemoveLine, useSubmitQuote, useUpsellSuggestions, useAuditTrail } from './useQuotations';
+import { useProducts } from '../catalog/useCatalog';
+import { PageHeader, StatusBadge, PrimaryButton, SecondaryButton, DangerButton, SuccessButton, Panel, NoticeStrip, Spinner, Input, Select, formatCents, formatBps } from '../../components/ui';
+
+export default function QuotationBuilderPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { data: quoteData, isLoading } = useQuotation(id!);
+  const { data: productsData } = useProducts();
+  const { data: suggestionsData } = useUpsellSuggestions(id!);
+  const { data: auditData } = useAuditTrail(id!);
+
+  const addLine = useAddLine();
+  const updateLine = useUpdateLine();
+  const removeLine = useRemoveLine();
+  const submitQuote = useSubmitQuote();
+
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [lineDiscount, setLineDiscount] = useState(0);
+
+  if (isLoading) return <Spinner />;
+
+  const quote = quoteData?.data;
+  if (!quote) return <div className="text-center text-charcoal-400 py-12">Quotation not found</div>;
+
+  const products = productsData?.data || [];
+  const suggestions = suggestionsData?.data || [];
+  const auditTrail = auditData?.data || [];
+  const isEditable = quote.status === 'DRAFT' || quote.status === 'REVISION';
+
+  const handleAddLine = async () => {
+    if (!selectedProductId) return;
+    await addLine.mutateAsync({
+      quotationId: id!,
+      data: { productId: selectedProductId, quantity, lineDiscountBps: lineDiscount * 100 },
+    });
+    setSelectedProductId('');
+    setQuantity(1);
+    setLineDiscount(0);
+  };
+
+  const handleSubmit = async () => {
+    if (!confirm('Submit this quotation for approval? Lines cannot be edited while pending.')) return;
+    await submitQuote.mutateAsync(id!);
+  };
+
+  return (
+    <div>
+      <PageHeader title={quote.title}>
+        <StatusBadge status={quote.status} className="text-sm px-3 py-1" />
+        <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
+      </PageHeader>
+
+      {/* Quote Info */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <Panel>
+          <p className="text-xs text-charcoal-400">Customer</p>
+          <p className="font-medium">{quote.customer?.name}</p>
+          <StatusBadge status={quote.customer?.tier || 'STANDARD'} className="mt-1" />
+        </Panel>
+        <Panel>
+          <p className="text-xs text-charcoal-400">Sales Rep</p>
+          <p className="font-medium">{quote.salesRep?.name}</p>
+        </Panel>
+        <Panel>
+          <p className="text-xs text-charcoal-400">Risk Level</p>
+          <StatusBadge status={quote.riskLevel} className="text-sm" />
+          {quote.riskScore > 0 && <span className="text-xs text-charcoal-400 ml-2">Score: {quote.riskScore} bps</span>}
+        </Panel>
+      </div>
+
+      {/* Risk Warning */}
+      {(quote.riskLevel === 'MEDIUM' || quote.riskLevel === 'HIGH') && (
+        <NoticeStrip variant={quote.riskLevel === 'HIGH' ? 'danger' : 'warning'}>
+          ⚠ This quotation has {quote.riskLevel.toLowerCase()} discount risk. It will require{' '}
+          {quote.riskLevel === 'HIGH' ? 'manager and finance' : 'manager'} approval.
+        </NoticeStrip>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        {/* Lines Table — 2/3 width */}
+        <div className="lg:col-span-2">
+          <Panel title="Quotation Lines">
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th className="text-right">Qty</th>
+                    <th className="text-right">Unit Price</th>
+                    <th className="text-right">Discount</th>
+                    <th className="text-right">Subtotal</th>
+                    <th className="text-right">Tax</th>
+                    <th className="text-right">Total</th>
+                    <th className="text-right">Margin</th>
+                    {isEditable && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {quote.lines.map((line: any) => (
+                    <tr key={line.id}>
+                      <td className="font-medium">{line.productName}</td>
+                      <td><StatusBadge status={line.productCategory} /></td>
+                      <td className="text-right">{line.quantity}</td>
+                      <td className="text-right font-mono">{formatCents(line.unitPrice)}</td>
+                      <td className="text-right">{formatBps(line.lineDiscountBps)}</td>
+                      <td className="text-right font-mono">{formatCents(line.afterDiscount)}</td>
+                      <td className="text-right text-charcoal-400">{formatCents(line.taxAmount)}</td>
+                      <td className="text-right font-mono font-medium">{formatCents(line.total)}</td>
+                      <td className={`text-right ${line.marginPercent >= 2000 ? 'text-success' : line.marginPercent >= 1000 ? 'text-warning' : 'text-danger'}`}>
+                        {formatBps(line.marginPercent)}
+                      </td>
+                      {isEditable && (
+                        <td>
+                          <button
+                            onClick={() => removeLine.mutate({ quotationId: id!, lineId: line.id })}
+                            className="text-danger text-xs hover:underline"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {quote.lines.length === 0 && (
+                    <tr><td colSpan={isEditable ? 10 : 9} className="text-center text-charcoal-400 py-6">No lines yet. Add products below.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Add Line Form */}
+            {isEditable && (
+              <div className="flex gap-2 mt-3 items-end">
+                <div className="flex-1">
+                  <Select label="Product" value={selectedProductId} onChange={(e) => setSelectedProductId(e.target.value)}>
+                    <option value="">Select product...</option>
+                    {products.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.name} — {formatCents(p.unitPrice)}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="w-20">
+                  <Input label="Qty" type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} />
+                </div>
+                <div className="w-24">
+                  <Input label="Discount %" type="number" min={0} max={100} step={0.1} value={lineDiscount} onChange={(e) => setLineDiscount(parseFloat(e.target.value) || 0)} />
+                </div>
+                <PrimaryButton onClick={handleAddLine} disabled={!selectedProductId || addLine.isPending}>
+                  Add
+                </PrimaryButton>
+              </div>
+            )}
+          </Panel>
+
+          {/* Audit Trail */}
+          {auditTrail.length > 0 && (
+            <Panel title="Audit Trail" className="mt-4">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {auditTrail.map((entry: any) => (
+                  <div key={entry.id} className="flex items-start gap-2 text-xs">
+                    <span className="text-charcoal-500 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</span>
+                    <span className="font-medium text-charcoal-300">{entry.user?.name}</span>
+                    <StatusBadge status={entry.action.replace('QUOTATION_', '')} />
+                    {entry.details && <span className="text-charcoal-400 truncate">{entry.details}</span>}
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+        </div>
+
+        {/* Right Sidebar — Totals + Upsell */}
+        <div className="space-y-4">
+          {/* Totals Panel */}
+          <Panel title="Totals">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-charcoal-400">Subtotal</span>
+                <span className="font-mono">{formatCents(quote.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-charcoal-400">Discount</span>
+                <span className="font-mono text-danger">-{formatCents(quote.totalDiscount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-charcoal-400">Tax</span>
+                <span className="font-mono">{formatCents(quote.totalTax)}</span>
+              </div>
+              <div className="border-t border-charcoal-600 my-2" />
+              <div className="flex justify-between text-base font-semibold">
+                <span>Total</span>
+                <span className="font-mono">{formatCents(quote.grandTotal)}</span>
+              </div>
+              <div className="border-t border-charcoal-700 my-2" />
+              <div className="flex justify-between">
+                <span className="text-charcoal-400">Cost</span>
+                <span className="font-mono text-charcoal-400">{formatCents(quote.totalCost)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-charcoal-400">Margin</span>
+                <span className={`font-mono ${quote.marginPercent >= 2000 ? 'text-success' : quote.marginPercent >= 1000 ? 'text-warning' : 'text-danger'}`}>
+                  {formatCents(quote.totalMargin)} ({formatBps(quote.marginPercent)})
+                </span>
+              </div>
+
+              {/* Margin Bar */}
+              <div className="mt-3">
+                <div className="h-2 bg-charcoal-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${quote.marginPercent >= 2000 ? 'bg-success' : quote.marginPercent >= 1000 ? 'bg-warning' : 'bg-danger'}`}
+                    style={{ width: `${Math.min(100, quote.marginPercent / 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          {/* Actions */}
+          {isEditable && quote.lines.length > 0 && (
+            <Panel>
+              <SuccessButton className="w-full" onClick={handleSubmit} disabled={submitQuote.isPending}>
+                Submit for Approval
+              </SuccessButton>
+            </Panel>
+          )}
+
+          {/* Upsell Panel */}
+          {suggestions.length > 0 && isEditable && (
+            <Panel title="💡 Suggestions">
+              <div className="space-y-3">
+                {suggestions.map((s: any) => (
+                  <div key={s.id} className="bg-charcoal-900 border border-charcoal-700 rounded p-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-medium text-sm">{s.suggestedProduct.name}</span>
+                      {s.isPromotion && <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">PROMO</span>}
+                    </div>
+                    <p className="text-xs text-charcoal-400 mb-2">{s.reason}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-success">
+                        +{formatCents(s.estimatedMarginDelta)} margin
+                      </span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => addLine.mutate({ quotationId: id!, data: { productId: s.suggestedProduct.id, quantity: 1, lineDiscountBps: 0 } })}
+                          className="text-xs bg-accent/20 text-accent px-2 py-1 rounded hover:bg-accent/30"
+                        >
+                          Add
+                        </button>
+                        <button className="text-xs text-charcoal-500 px-2 py-1 hover:text-charcoal-300">
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {/* Approval Requests */}
+          {quote.approvalRequests?.length > 0 && (
+            <Panel title="Approval Steps">
+              <div className="space-y-2">
+                {quote.approvalRequests.map((ar: any) => (
+                  <div key={ar.id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-charcoal-400">Step {ar.step}:</span>
+                      <span>{ar.role.replace('_', ' ')}</span>
+                    </div>
+                    <StatusBadge status={ar.status} />
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
