@@ -39,7 +39,7 @@ export default function CustomerPortalPage() {
   const thread = threadData?.data;
   const comments = thread?.comments ?? [];
 
-  const nonNegotiableStatuses = ['CONFIRMED', 'BILLED', 'PAID', 'REJECTED'];
+  const nonNegotiableStatuses = ['DRAFT', 'PENDING_MANAGER', 'PENDING_FINANCE', 'REVISION', 'APPROVED', 'CONFIRMED', 'BILLED', 'PAID', 'REJECTED'];
   const isReadOnly = quote && nonNegotiableStatuses.includes(quote.status);
   const isConfirmed = quote?.status === 'CONFIRMED' || quote?.status === 'BILLED' || quote?.status === 'PAID';
   const isRejected = quote?.status === 'REJECTED' || rejectSuccess;

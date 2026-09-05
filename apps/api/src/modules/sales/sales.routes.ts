@@ -25,12 +25,17 @@ salesRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, 
 salesRoutes.get('/quotations', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filter = QuotationFilterSchema.parse(req.query);
-    if (req.user!.role === UserRole.CUSTOMER) {
-      filter.customerId = req.user!.userId;
-    }
     const pagination = PaginationQuerySchema.parse(req.query);
     const page = pagination.page ?? 1;
     const limit = (pagination as any).limit ?? pagination.pageSize ?? 20;
+
+    if (req.user!.role === UserRole.CUSTOMER) {
+      const result = await salesService.getCustomerQuotations(req.user!.userId, page, limit);
+      return res.json(result);
+    }
+    if (req.user!.role === UserRole.SALES_REP) {
+      filter.salesRepId = req.user!.userId;
+    }
     const result = await salesService.getQuotations(filter, page, limit);
     res.json(result);
   } catch (err) { next(err); }
@@ -38,8 +43,9 @@ salesRoutes.get('/quotations', authMiddleware, async (req: Request, res: Respons
 
 // ── Quotation Detail ─────────────────────────────────────────
 
-salesRoutes.get('/quotations/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+salesRoutes.get('/quotations/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
     const quotation = await salesService.getQuotationById(req.params.id as string);
     res.json({ data: quotation });
   } catch (err) { next(err); }
@@ -65,10 +71,11 @@ salesRoutes.post(
 salesRoutes.put(
   '/quotations/:id',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = UpdateQuotationSchema.parse(req.body);
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       const quotation = await salesService.updateQuotation(req.params.id as string, input, req.user!.userId);
       res.json({ data: quotation });
     } catch (err) { next(err); }
@@ -80,10 +87,11 @@ salesRoutes.put(
 salesRoutes.post(
   '/quotations/:id/lines',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = AddQuotationLineSchema.parse(req.body);
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       const line = await salesService.addQuotationLine(req.params.id as string, input, req.user!.userId);
       res.status(201).json({ data: line });
     } catch (err) { next(err); }
@@ -93,10 +101,11 @@ salesRoutes.post(
 salesRoutes.put(
   '/quotations/:id/lines/:lineId',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = UpdateQuotationLineSchema.parse(req.body);
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       const quotation = await salesService.updateQuotationLine(req.params.id as string, req.params.lineId as string, input, req.user!.userId);
       res.json({ data: quotation });
     } catch (err) { next(err); }
@@ -106,9 +115,10 @@ salesRoutes.put(
 salesRoutes.delete(
   '/quotations/:id/lines/:lineId',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       await salesService.removeQuotationLine(req.params.id as string, req.params.lineId as string, req.user!.userId);
       res.status(204).send();
     } catch (err) { next(err); }
@@ -120,9 +130,10 @@ salesRoutes.delete(
 salesRoutes.post(
   '/quotations/:id/submit',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       const quotation = await salesService.submitQuote(req.params.id as string, req.user!.userId);
       res.json({ data: quotation });
     } catch (err) { next(err); }
@@ -134,9 +145,10 @@ salesRoutes.post(
 salesRoutes.delete(
   '/quotations/:id',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       await salesService.deleteQuotation(req.params.id as string, req.user!.userId);
       res.status(204).send();
     } catch (err) { next(err); }
@@ -148,8 +160,10 @@ salesRoutes.delete(
 salesRoutes.get(
   '/quotations/:id/risk',
   authMiddleware,
+  requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
       const risk = await salesService.getLiveRisk(req.params.id as string);
       res.json({ data: risk });
     } catch (err) { next(err); }
@@ -158,8 +172,9 @@ salesRoutes.get(
 
 // ── Upsell Suggestions ──────────────────────────────────────
 
-salesRoutes.get('/quotations/:id/upsell-suggestions', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+salesRoutes.get('/quotations/:id/upsell-suggestions', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
     const suggestions = await salesService.getUpsellSuggestions(req.params.id as string);
     res.json({ data: suggestions });
   } catch (err) { next(err); }
@@ -169,9 +184,10 @@ salesRoutes.get('/quotations/:id/upsell-suggestions', authMiddleware, async (req
 salesRoutes.post(
   '/quotations/:id/comments',
   authMiddleware,
-  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
+  requireRole(UserRole.SALES_REP, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'write');
       const { message } = req.body;
       if (!message || typeof message !== 'string' || !message.trim()) {
         throw new AppError(400, 'BAD_REQUEST', 'Message is required');

@@ -13,6 +13,7 @@ import {
   RejectQuotationSchema,
 } from '@dealflow360/contracts';
 import * as portalService from './portal.service.js';
+import * as salesService from '../sales/sales.service.js';
 import prisma from '../../shared/prisma.js';
 import { AppError } from '../../shared/errors.js';
 
@@ -23,6 +24,7 @@ export const portalRoutes = Router();
 portalRoutes.post(
   '/quote-request',
   authMiddleware,
+  requireRole(UserRole.CUSTOMER),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { items, notes } = req.body;
@@ -42,6 +44,7 @@ portalRoutes.post(
 portalRoutes.get(
   '/token/:quotationId',
   authMiddleware,
+  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN, UserRole.CUSTOMER),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const quoteId = req.params.quotationId as string;
@@ -50,13 +53,22 @@ portalRoutes.get(
 
       const isInternal = [UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN].includes(req.user!.role as UserRole);
       const isOwner = req.user!.role === UserRole.CUSTOMER && quote.customerId === req.user!.userId;
+      if (req.user!.role === UserRole.SALES_REP) {
+        await salesService.assertQuotationAccess(quoteId, req.user!.userId, req.user!.role, 'read');
+      }
 
       if (!isInternal && !isOwner) {
         throw new AppError(403, 'FORBIDDEN', 'Access denied to this quotation');
       }
 
-      const token = await portalService.getOrCreateCustomerToken(quoteId, quote.customerId);
-      res.json({ data: token });
+      const tokenRecord = await prisma.customerAccessToken.findFirst({
+        where: { quotationId: quoteId, customerId: quote.customerId, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!tokenRecord) {
+        throw new AppError(404, 'PORTAL_NOT_SENT', 'Customer portal access has not been issued for this quotation yet');
+      }
+      res.json({ data: { token: tokenRecord.token, expiresAt: tokenRecord.expiresAt } });
     } catch (err) { next(err); }
   },
 );
@@ -65,23 +77,18 @@ portalRoutes.get(
 portalRoutes.post(
   '/token/:quotationId',
   authMiddleware,
+  requireRole(UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const quoteId = req.params.quotationId as string;
       const quote = await prisma.quotation.findUnique({ where: { id: quoteId } });
       if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
 
-      const isInternal = [UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.ADMIN].includes(req.user!.role as UserRole);
-      const isOwner = req.user!.role === UserRole.CUSTOMER && quote.customerId === req.user!.userId;
-
-      if (!isInternal && !isOwner) {
-        throw new AppError(403, 'FORBIDDEN', 'Access denied to this quotation');
+      if (req.user!.role === UserRole.SALES_REP) {
+        await salesService.assertQuotationAccess(quoteId, req.user!.userId, req.user!.role, 'read');
       }
 
-      const token = isInternal
-        ? await portalService.generatePortalToken(req.params.quotationId as string, req.user!.userId)
-        : await portalService.getOrCreateCustomerToken(req.params.quotationId as string, quote.customerId);
-
+      const token = await portalService.generatePortalToken(quoteId, req.user!.userId);
       res.status(201).json({ data: token });
     } catch (err) { next(err); }
   },

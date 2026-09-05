@@ -2,10 +2,14 @@
 
 import React, { useState } from 'react';
 import { useProducts, useCreateProduct } from './useCatalog';
+import { useAuth } from '../../lib/auth.js';
+import { UserRole } from '@dealflow360/contracts';
 import { PageHeader, StatusBadge, PrimaryButton, Input, Select, Spinner, Panel, formatCents, formatBps } from '../../components/ui';
 import { ProductCategory } from '@dealflow360/contracts';
 
 export default function ProductListPage() {
+  const { user } = useAuth();
+  const canManageProducts = user?.role === UserRole.ADMIN;
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -22,10 +26,10 @@ export default function ProductListPage() {
   return (
     <div>
       <PageHeader title="Products">
-        <PrimaryButton onClick={() => setShowCreate(true)}>+ New Product</PrimaryButton>
+        {canManageProducts && <PrimaryButton onClick={() => setShowCreate(true)}>+ New Product</PrimaryButton>}
       </PageHeader>
 
-      {showCreate && (
+      {canManageProducts && showCreate && (
         <Panel title="New Product" className="mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Input label="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />

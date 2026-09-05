@@ -20,8 +20,10 @@ export default function QuotationBuilderPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const approvalAction = useApprovalAction();
-  const isSalesRep = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const { data: quoteData, isLoading } = useQuotation(id!);
+  const isAssignedSalesRep = user?.role === UserRole.SALES_REP && quoteData?.data?.salesRepId === user?.id;
+  const isSalesRep = isAssignedSalesRep || user?.role === UserRole.ADMIN;
+  const canOperateFulfillment = user?.role === UserRole.FINANCE_OPS || user?.role === UserRole.ADMIN;
   const { data: productsData } = useProducts();
   const { data: suggestionsData } = useUpsellSuggestions(id!);
   const { data: auditData } = useAuditTrail(id!);
@@ -227,13 +229,13 @@ export default function QuotationBuilderPage() {
     <div>
       <PageHeader title={quote.title}>
         <StatusBadge status={quote.status} className="text-sm px-3 py-1" />
-        {(['APPROVED', 'FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION'].includes(quote.status) ||
-          (quote.status === 'DRAFT' && quote.lines?.length > 0)) && (
+        {(['APPROVED', 'FULFILLMENT_READY', 'SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION'].includes(quote.status) &&
+          (isSalesRep || user?.role === UserRole.SALES_MANAGER)) && (
           <SecondaryButton onClick={handleOpenPortal}>
             {quote.status === 'SENT_TO_CUSTOMER' ? '🔗 Open Customer Portal' : '📤 Send Quotation to Customer'}
           </SecondaryButton>
         )}
-        {(quote.status === 'APPROVED' || quote.status === 'FULFILLMENT_READY') && (
+        {canOperateFulfillment && (quote.status === 'APPROVED' || quote.status === 'FULFILLMENT_READY') && (
           <PrimaryButton onClick={handleGenerateFulfillment} disabled={suggestFulfillment.isPending}>
             {existingPlanData?.data ? 'Regenerate Fulfillment Plan' : 'Generate Fulfillment Plan'}
           </PrimaryButton>
@@ -778,7 +780,7 @@ export default function QuotationBuilderPage() {
               </div>
 
               {/* Staff Reply Form */}
-              <form onSubmit={handleSendStaffReply} className="flex gap-2">
+              {isSalesRep && <form onSubmit={handleSendStaffReply} className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Reply to customer inquiry, change request, or counter-offer..."
@@ -793,7 +795,7 @@ export default function QuotationBuilderPage() {
                 >
                   {isSendingReply ? 'Sending…' : 'Send Reply'}
                 </button>
-              </form>
+              </form>}
             </Panel>
           )}
 
@@ -914,7 +916,7 @@ export default function QuotationBuilderPage() {
           )}
 
           {/* Upsell Suggestions Panel — always shown when editable */}
-          {isEditable && (
+          {isEditable && isSalesRep && (
             <Panel title="💡 Suggestions">
               {suggestions.length === 0 ? (
                 <p className="text-xs text-charcoal-500">

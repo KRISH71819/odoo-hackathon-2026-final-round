@@ -412,20 +412,23 @@ export async function getReportData(filters: ReportFilter) {
 
 // ── Dashboard KPIs ──────────────────────────────────────────
 
-export async function getDashboardKPIs() {
+export async function getDashboardKPIs(salesRepId?: string) {
+  const quoteScope = salesRepId ? { salesRepId } : {};
   const [pendingApprovals, openQuotes, atRiskDeals, recentActivity] = await Promise.all([
-    prisma.approvalRequest.count({ where: { status: 'PENDING' } }),
+    prisma.approvalRequest.count({ where: { status: 'PENDING', ...(salesRepId && { quotation: { salesRepId } }) } }),
     prisma.quotation.count({
       where: {
+        ...quoteScope,
         status: {
           in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_MANAGER, QuotationStatus.PENDING_FINANCE, QuotationStatus.REVISION],
         },
       },
     }),
     prisma.quotation.count({
-      where: { riskLevel: { in: ['MEDIUM', 'HIGH'] }, status: { notIn: [QuotationStatus.PAID, QuotationStatus.REJECTED] } },
+      where: { ...quoteScope, riskLevel: { in: ['MEDIUM', 'HIGH'] }, status: { notIn: [QuotationStatus.PAID, QuotationStatus.REJECTED] } },
     }),
     prisma.auditLog.findMany({
+      where: salesRepId ? { quotation: { salesRepId } } : undefined,
       take: 10,
       orderBy: { createdAt: 'desc' },
       include: {

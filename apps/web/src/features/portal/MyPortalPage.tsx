@@ -174,10 +174,10 @@ export default function MyPortalPage() {
                   {quotes.map((q: any) => {
                     const lineCount = q._count?.lines ?? q.lines?.length ?? 0;
                     const hasLines = lineCount > 0;
-                    const canReview = ['SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION', 'APPROVED', 'FULFILLMENT_READY'].includes(q.status) || (q.status === 'DRAFT' && hasLines);
+                    const canReview = ['SENT_TO_CUSTOMER', 'UNDER_NEGOTIATION', 'FULFILLMENT_READY'].includes(q.status);
                     const isConfirmed = ['CONFIRMED', 'BILLED', 'PAID'].includes(q.status);
                     const isRejected = q.status === 'REJECTED';
-                    const isPendingInternal = ['PENDING_MANAGER', 'PENDING_FINANCE', 'REVISION'].includes(q.status) || (q.status === 'DRAFT' && !hasLines);
+                    const isPendingInternal = ['DRAFT', 'PENDING_MANAGER', 'PENDING_FINANCE', 'REVISION', 'APPROVED'].includes(q.status);
 
                     return (
                       <tr key={q.id}>
@@ -212,13 +212,19 @@ export default function MyPortalPage() {
                               View Declined
                             </button>
                           ) : isPendingInternal ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenQuote(q)}
-                              className="px-2.5 py-1 text-xs font-medium rounded border border-amber-500/30 bg-amber-950/20 text-amber-300 hover:bg-amber-900/30 transition-colors"
-                            >
-                              In Preparation (View)
-                            </button>
+                            q.portalToken ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuote(q)}
+                                className="px-2.5 py-1 text-xs font-medium rounded border border-amber-500/30 bg-amber-950/20 text-amber-300 hover:bg-amber-900/30 transition-colors"
+                              >
+                                In Preparation (View)
+                              </button>
+                            ) : (
+                              <span className="px-2.5 py-1 text-xs font-medium rounded border border-amber-500/20 bg-amber-950/10 text-amber-300">
+                                In Preparation
+                              </span>
+                            )
                           ) : (
                             <button
                               type="button"

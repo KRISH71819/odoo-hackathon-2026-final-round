@@ -292,6 +292,32 @@ export async function updateCategoryDiscountRule(id: string, maxDiscountBps: num
   });
 }
 
+
+export async function getApprovalThresholds() {
+  return prisma.approvalThreshold.findMany({ orderBy: { minRiskScore: 'asc' } });
+}
+
+export async function updateApprovalThreshold(
+  id: string,
+  data: { minRiskScore?: number; maxRiskScore?: number; requiredApprovers?: string[]; description?: string },
+) {
+  const existing = await prisma.approvalThreshold.findUnique({ where: { id } });
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'Approval threshold not found');
+  const allowedApprovers = new Set(['SALES_MANAGER', 'FINANCE_OPS']);
+  if (data.requiredApprovers && data.requiredApprovers.some((r) => !allowedApprovers.has(r))) {
+    throw new AppError(400, 'INVALID_APPROVER', 'Approval chain may contain only SALES_MANAGER and FINANCE_OPS');
+  }
+  return prisma.approvalThreshold.update({
+    where: { id },
+    data: {
+      ...(data.minRiskScore !== undefined && { minRiskScore: Number(data.minRiskScore) }),
+      ...(data.maxRiskScore !== undefined && { maxRiskScore: Number(data.maxRiskScore) }),
+      ...(data.requiredApprovers !== undefined && { requiredApprovers: JSON.stringify(data.requiredApprovers) }),
+      ...(data.description !== undefined && { description: data.description }),
+    },
+  });
+}
+
 function assertApprovalRole(requiredRole: string, actorRole: string) {
   if (actorRole === 'ADMIN') return;
   const normalizedRequired = requiredRole === 'FINANCE' ? 'FINANCE_OPS' : requiredRole;

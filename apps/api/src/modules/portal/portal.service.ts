@@ -24,10 +24,44 @@ import { createInvoice } from '../insights/insights.service.js';
 export async function getPortalQuotation(quotationId: string, customerId: string) {
   const quote = await prisma.quotation.findUnique({
     where: { id: quotationId },
-    include: {
-      customer: { select: { id: true, name: true, email: true, tier: true } },
-      salesRep: { select: { id: true, name: true, email: true } },
-      lines: { orderBy: { sortOrder: 'asc' } },
+    select: {
+      id: true,
+      number: true,
+      title: true,
+      status: true,
+      subtotal: true,
+      taxTotal: true,
+      total: true,
+      orderDiscount: true,
+      orderDiscountBps: true,
+      totalDiscount: true,
+      createdAt: true,
+      updatedAt: true,
+      customerId: true,
+      customer: { select: { id: true, name: true, tier: true } },
+      salesRep: { select: { id: true, name: true } },
+      lines: {
+        select: {
+          id: true,
+          productId: true,
+          variantId: true,
+          productName: true,
+          productCategory: true,
+          description: true,
+          quantity: true,
+          unitPrice: true,
+          lineDiscount: true,
+          discountBps: true,
+          discountAmount: true,
+          afterDiscount: true,
+          taxRate: true,
+          subtotal: true,
+          taxAmount: true,
+          total: true,
+          sortOrder: true,
+        },
+        orderBy: { sortOrder: 'asc' },
+      },
     },
   });
   if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
@@ -68,8 +102,6 @@ export async function addNegotiationComment(
     QuotationStatus.SENT_TO_CUSTOMER,
     QuotationStatus.UNDER_NEGOTIATION,
     QuotationStatus.FULFILLMENT_READY,
-    QuotationStatus.APPROVED,
-    QuotationStatus.DRAFT,
   ];
   if (!portalAllowedStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Cannot comment in quotation status ${quote.status}`);
@@ -81,8 +113,8 @@ export async function addNegotiationComment(
     thread = await prisma.negotiationThread.create({ data: { quotationId } });
   }
 
-  // Move quote to UNDER_NEGOTIATION if it was SENT_TO_CUSTOMER or DRAFT
-  if (quote.status === QuotationStatus.SENT_TO_CUSTOMER || quote.status === QuotationStatus.DRAFT) {
+  // Move quote to UNDER_NEGOTIATION when customer starts a conversation.
+  if (quote.status === QuotationStatus.SENT_TO_CUSTOMER) {
     await prisma.quotation.update({
       where: { id: quotationId },
       data: { status: QuotationStatus.UNDER_NEGOTIATION, version: { increment: 1 } },
@@ -127,8 +159,6 @@ export async function submitCounterOffer(
     QuotationStatus.SENT_TO_CUSTOMER,
     QuotationStatus.UNDER_NEGOTIATION,
     QuotationStatus.FULFILLMENT_READY,
-    QuotationStatus.APPROVED,
-    QuotationStatus.DRAFT,
   ];
   if (!negotiableStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Counter-offer not allowed in status ${quote.status}`);
@@ -228,8 +258,6 @@ export async function confirmQuotation(quotationId: string, customerId: string) 
     QuotationStatus.SENT_TO_CUSTOMER,
     QuotationStatus.UNDER_NEGOTIATION,
     QuotationStatus.FULFILLMENT_READY,
-    QuotationStatus.APPROVED,
-    QuotationStatus.DRAFT,
   ];
   if (!confirmableStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Quotation in status ${quote.status} cannot be confirmed`);
@@ -272,9 +300,13 @@ export async function rejectQuotation(quotationId: string, customerId: string, r
     return quote;
   }
 
-  // Cannot reject once confirmed, billed, or paid
-  if ([QuotationStatus.CONFIRMED, QuotationStatus.BILLED, QuotationStatus.PAID].includes(quote.status as QuotationStatus)) {
-    throw new AppError(409, 'INVALID_STATE', `Cannot reject a quotation that has already been confirmed/processed (${quote.status})`);
+  const rejectableStatuses: string[] = [
+    QuotationStatus.SENT_TO_CUSTOMER,
+    QuotationStatus.UNDER_NEGOTIATION,
+    QuotationStatus.FULFILLMENT_READY,
+  ];
+  if (!rejectableStatuses.includes(quote.status)) {
+    throw new AppError(409, 'INVALID_STATE', `Quotation in status ${quote.status} cannot be declined by the customer`);
   }
 
   let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
@@ -331,20 +363,15 @@ export async function generatePortalToken(quotationId: string, userId: string) {
   });
   if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
 
-  // Transition to SENT_TO_CUSTOMER if APPROVED, FULFILLMENT_READY, UNDER_NEGOTIATION, or DRAFT (with lines)
+  // Formal send is allowed only after governance approval / fulfillment readiness.
   const sendableStatuses: string[] = [
     QuotationStatus.APPROVED,
     QuotationStatus.FULFILLMENT_READY,
     QuotationStatus.SENT_TO_CUSTOMER,
     QuotationStatus.UNDER_NEGOTIATION,
-    QuotationStatus.DRAFT,
   ];
   if (!sendableStatuses.includes(quote.status)) {
     throw new AppError(409, 'INVALID_STATE', `Quotation cannot be sent to customer in status: ${quote.status}`);
-  }
-
-  if (quote.status === QuotationStatus.DRAFT && (!quote.lines || quote.lines.length === 0)) {
-    throw new AppError(400, 'EMPTY_QUOTE', 'Cannot send quotation with no products/lines to customer. Please add line items first.');
   }
 
   // Invalidate old tokens for this quotation
@@ -376,9 +403,7 @@ export async function generatePortalToken(quotationId: string, userId: string) {
   // Move to SENT_TO_CUSTOMER if not already there
   if (
     quote.status === QuotationStatus.APPROVED ||
-    quote.status === QuotationStatus.FULFILLMENT_READY ||
-    quote.status === QuotationStatus.UNDER_NEGOTIATION ||
-    quote.status === QuotationStatus.DRAFT
+    quote.status === QuotationStatus.FULFILLMENT_READY
   ) {
     await prisma.quotation.update({
       where: { id: quotationId },
@@ -513,6 +538,20 @@ export async function addStaffNegotiationComment(
   userId: string,
   message: string,
 ) {
+  const quote = await prisma.quotation.findUnique({ where: { id: quotationId }, select: { id: true, status: true } });
+  if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
+  const commentableStatuses: string[] = [
+    QuotationStatus.SENT_TO_CUSTOMER,
+    QuotationStatus.UNDER_NEGOTIATION,
+    QuotationStatus.PENDING_MANAGER,
+    QuotationStatus.PENDING_FINANCE,
+    QuotationStatus.REVISION,
+    QuotationStatus.APPROVED,
+    QuotationStatus.FULFILLMENT_READY,
+  ];
+  if (!commentableStatuses.includes(quote.status)) {
+    throw new AppError(409, 'INVALID_STATE', `Staff reply not allowed in quotation status ${quote.status}`);
+  }
   let thread = await prisma.negotiationThread.findUnique({ where: { quotationId } });
   if (!thread) {
     thread = await prisma.negotiationThread.create({ data: { quotationId } });

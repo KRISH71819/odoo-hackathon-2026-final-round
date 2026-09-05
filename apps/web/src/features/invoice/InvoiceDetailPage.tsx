@@ -4,21 +4,26 @@ import { useParams, Link } from 'react-router-dom';
 import { PageHeader, Panel, StatusBadge, PrimaryButton, SuccessButton, Input, Spinner, NoticeStrip } from '../../components/ui.js';
 import { formatCurrency, formatDate, formatDateTime } from '../../lib/format.js';
 import { useInvoice, useRecordPayment } from './useInvoices.js';
+import { useCreateCreditNote } from '../billing/useBilling.js';
 import { useAuth } from '../../lib/auth.js';
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, isLoading } = useInvoice(id!);
   const recordPayment = useRecordPayment();
+  const createCreditNote = useCreateCreditNote();
   const { user } = useAuth();
   const [payAmount, setPayAmount] = useState('');
   const [payRef, setPayRef] = useState('');
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditReason, setCreditReason] = useState('');
 
   if (isLoading) return <Spinner />;
   const invoice = data?.data;
   if (!invoice) return <NoticeStrip variant="danger">Invoice not found</NoticeStrip>;
 
-  const canPay = ['FINANCE_OPS', 'ADMIN'].includes(user?.role ?? '') && invoice.status !== 'PAID' && invoice.status !== 'CANCELLED';
+  const canReconcile = ['FINANCE_OPS', 'ADMIN'].includes(user?.role ?? '');
+  const canPay = canReconcile && invoice.status !== 'PAID' && invoice.status !== 'CANCELLED';
   const totalPaid = (invoice.payments ?? []).reduce((s: number, p: any) => s + p.amount, 0);
 
   const handlePay = () => {
@@ -122,6 +127,18 @@ export default function InvoiceDetailPage() {
                 >
                   {recordPayment.isPending ? 'Processing...' : 'Record Payment'}
                 </SuccessButton>
+              </div>
+            </Panel>
+          )}
+
+          {canReconcile && invoice.status !== 'CANCELLED' && (
+            <Panel title="Issue Credit Note">
+              <div className="space-y-3">
+                <Input label="Amount ($)" type="number" min="0.01" step="0.01" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} />
+                <Input label="Reason" value={creditReason} onChange={(e) => setCreditReason(e.target.value)} placeholder="Refund / adjustment reason" />
+                <PrimaryButton className="w-full" disabled={createCreditNote.isPending || !creditAmount || !creditReason.trim()} onClick={async () => { await createCreditNote.mutateAsync({ invoiceId: id!, data: { amount: Math.round(Number(creditAmount) * 100), reason: creditReason.trim() } }); setCreditAmount(''); setCreditReason(''); window.location.reload(); }}>
+                  {createCreditNote.isPending ? 'Issuing…' : 'Issue Credit Note'}
+                </PrimaryButton>
               </div>
             </Panel>
           )}

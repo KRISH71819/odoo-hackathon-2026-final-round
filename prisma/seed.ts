@@ -331,6 +331,7 @@ async function main() {
     data: [
       {
         id: 'at-none',
+        riskLevel: 'NONE',
         minRiskScore: 0,
         maxRiskScore: 0,
         requiredApprovers: '[]',
@@ -338,6 +339,7 @@ async function main() {
       },
       {
         id: 'at-low',
+        riskLevel: 'LOW',
         minRiskScore: 0.01,
         maxRiskScore: 5,
         requiredApprovers: '["SALES_MANAGER"]',
@@ -345,6 +347,7 @@ async function main() {
       },
       {
         id: 'at-medium',
+        riskLevel: 'MEDIUM',
         minRiskScore: 5.01,
         maxRiskScore: 15,
         requiredApprovers: '["SALES_MANAGER"]',
@@ -352,6 +355,7 @@ async function main() {
       },
       {
         id: 'at-high',
+        riskLevel: 'HIGH',
         minRiskScore: 15.01,
         maxRiskScore: 100,
         requiredApprovers: '["SALES_MANAGER", "FINANCE_OPS"]',

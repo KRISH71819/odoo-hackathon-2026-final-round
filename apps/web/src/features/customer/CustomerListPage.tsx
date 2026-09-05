@@ -4,6 +4,8 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../lib/auth.js';
+import { UserRole } from '@dealflow360/contracts';
 import {
   useCustomers,
   useCustomer,
@@ -29,6 +31,9 @@ import {
 
 export default function CustomerListPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canCreateQuote = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
+  const canCreateCustomer = user?.role === UserRole.ADMIN || user?.role === UserRole.SALES_REP;
   const { data: customersData, isLoading } = useCustomers();
   const { data: rulesData } = useDiscountRules();
   const createQuotation = useCreateQuotation();
@@ -75,7 +80,7 @@ export default function CustomerListPage() {
         title="Customers"
         subtitle="Customer tier tracking, discount ceilings, and quotation relationship history"
       >
-        <PrimaryButton onClick={() => setShowAddModal(true)}>+ Add Customer</PrimaryButton>
+        {canCreateCustomer && <PrimaryButton onClick={() => setShowAddModal(true)}>+ Add Customer</PrimaryButton>}
       </PageHeader>
 
       {/* KPI Overview Cards */}
@@ -201,13 +206,15 @@ export default function CustomerListPage() {
                           >
                             Details
                           </SecondaryButton>
-                          <PrimaryButton
-                            onClick={() => handleCreateQuoteForCustomer(customer.id, customer.name)}
-                            className="text-xs py-1"
-                            disabled={createQuotation.isPending}
-                          >
-                            + Quote
-                          </PrimaryButton>
+                          {canCreateQuote && (
+                            <PrimaryButton
+                              onClick={() => handleCreateQuoteForCustomer(customer.id, customer.name)}
+                              className="text-xs py-1"
+                              disabled={createQuotation.isPending}
+                            >
+                              + Quote
+                            </PrimaryButton>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -225,6 +232,8 @@ export default function CustomerListPage() {
           customerId={selectedCustomerId}
           onClose={() => setSelectedCustomerId(null)}
           onStartQuote={(id, name) => handleCreateQuoteForCustomer(id, name)}
+          canCreateQuote={canCreateQuote}
+          canManageTier={user?.role === UserRole.ADMIN || user?.role === UserRole.SALES_MANAGER}
         />
       )}
 
@@ -239,10 +248,14 @@ function CustomerDetailModal({
   customerId,
   onClose,
   onStartQuote,
+  canCreateQuote,
+  canManageTier,
 }: {
   customerId: string;
   onClose: () => void;
   onStartQuote: (id: string, name: string) => void;
+  canCreateQuote: boolean;
+  canManageTier: boolean;
 }) {
   const navigate = useNavigate();
   const { data, isLoading } = useCustomer(customerId);
@@ -294,26 +307,22 @@ function CustomerDetailModal({
 
             {/* Tier Configuration Card */}
             <Panel title="Customer Tier & Pricing Governance" className="mb-4">
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between">
-                <div className="w-full sm:w-64">
-                  <Select
-                    label="Assigned Tier"
-                    value={selectedTier}
-                    onChange={(e) => setSelectedTier(e.target.value)}
-                  >
-                    <option value="BRONZE">BRONZE</option>
-                    <option value="SILVER">SILVER</option>
-                    <option value="GOLD">GOLD</option>
-                  </Select>
+              {canManageTier ? (
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between">
+                  <div className="w-full sm:w-64">
+                    <Select label="Assigned Tier" value={selectedTier} onChange={(e) => setSelectedTier(e.target.value)}>
+                      <option value="BRONZE">BRONZE</option>
+                      <option value="SILVER">SILVER</option>
+                      <option value="GOLD">GOLD</option>
+                    </Select>
+                  </div>
+                  <PrimaryButton onClick={handleSaveTier} disabled={updateTier.isPending || selectedTier === customer.tier} className="whitespace-nowrap">
+                    {updateTier.isPending ? 'Updating...' : 'Save Tier Change'}
+                  </PrimaryButton>
                 </div>
-                <PrimaryButton
-                  onClick={handleSaveTier}
-                  disabled={updateTier.isPending || selectedTier === customer.tier}
-                  className="whitespace-nowrap"
-                >
-                  {updateTier.isPending ? 'Updating...' : 'Save Tier Change'}
-                </PrimaryButton>
-              </div>
+              ) : (
+                <p className="text-xs text-df-text-muted">Tier changes are managed by Sales Manager or Admin.</p>
+              )}
 
               <div className="mt-3 p-3 bg-df-surface/60 rounded border border-df-border text-xs">
                 <div className="font-medium text-df-text">
@@ -385,9 +394,11 @@ function CustomerDetailModal({
             {/* Modal Actions */}
             <div className="flex items-center justify-between border-t border-df-border pt-4">
               <SecondaryButton onClick={onClose}>Close</SecondaryButton>
-              <PrimaryButton onClick={() => onStartQuote(customer.id, customer.name)}>
-                + Create Quotation for Customer
-              </PrimaryButton>
+              {canCreateQuote && (
+                <PrimaryButton onClick={() => onStartQuote(customer.id, customer.name)}>
+                  + Create Quotation for Customer
+                </PrimaryButton>
+              )}
             </div>
           </div>
         )}

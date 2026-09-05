@@ -24,13 +24,18 @@ export function resolveApprovalChain(
   // If risk is NONE, no approval needed regardless of config
   if (riskLevel === RiskLevel.NONE) return [];
 
-  const threshold = thresholds.find(
-    (t) =>
-      t.riskLevel === riskLevel ||
-      (riskLevel === RiskLevel.LOW && t.id === 'at-low') ||
-      (riskLevel === RiskLevel.MEDIUM && t.id === 'at-medium') ||
-      (riskLevel === RiskLevel.HIGH && t.id === 'at-high')
-  );
+  const expectedId = riskLevel === RiskLevel.LOW
+    ? 'at-low'
+    : riskLevel === RiskLevel.MEDIUM
+      ? 'at-medium'
+      : riskLevel === RiskLevel.HIGH
+        ? 'at-high'
+        : 'at-none';
+
+  // Prefer the stable seeded ID so older databases that relied on the schema's
+  // default riskLevel value cannot accidentally match the wrong approval row.
+  const threshold = thresholds.find((t) => t.id === expectedId)
+    ?? thresholds.find((t) => t.riskLevel === riskLevel);
   if (!threshold) return [];
 
   try {

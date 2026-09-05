@@ -69,6 +69,7 @@ export function DashboardPage() {
 
   const kpi = data?.data;
   const isManager = MANAGERS.includes(user?.role as UserRole);
+  const canCreateQuote = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const customers = customersData?.data || [];
 
   const handleNewQuote = async () => {
@@ -114,9 +115,11 @@ export function DashboardPage() {
               <Button variant="outline" asChild><Link to="/reports">📊 Reports</Link></Button>
             </>
           )}
-          <Button onClick={handleNewQuote} disabled={createQuotation.isPending}>
-            + New Quotation
-          </Button>
+          {canCreateQuote && (
+            <Button onClick={handleNewQuote} disabled={createQuotation.isPending}>
+              + New Quotation
+            </Button>
+          )}
         </div>
       </div>
 

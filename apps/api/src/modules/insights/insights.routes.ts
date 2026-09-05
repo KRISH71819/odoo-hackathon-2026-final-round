@@ -11,17 +11,19 @@ import {
   ReportFilterSchema,
 } from '@dealflow360/contracts';
 import * as insightsService from './insights.service.js';
+import { AppError } from '../../shared/errors.js';
 
 export const insightsRoutes = Router();
 
 insightsRoutes.use(authMiddleware);
-insightsRoutes.use(requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
+insightsRoutes.use(requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Dashboard KPIs ────────────────────────────────────────────
 
-insightsRoutes.get('/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
+insightsRoutes.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = await insightsService.getDashboardKPIs();
+    const salesRepId = req.user!.role === UserRole.SALES_REP ? req.user!.userId : undefined;
+    const data = await insightsService.getDashboardKPIs(salesRepId);
     res.json({ data });
   } catch (err) { next(err); }
 });
@@ -36,7 +38,7 @@ insightsRoutes.get('/invoices', async (req: Request, res: Response, next: NextFu
       status: req.query.status as string | undefined,
       dateFrom: req.query.dateFrom as string | undefined,
       dateTo: req.query.dateTo as string | undefined,
-      salesRepId: req.query.salesRepId as string | undefined,
+      salesRepId: req.user!.role === UserRole.SALES_REP ? req.user!.userId : req.query.salesRepId as string | undefined,
     };
     const result = await insightsService.getInvoices(filters, page, limit);
     res.json({ data: result.data, pagination: result.pagination });
@@ -46,13 +48,16 @@ insightsRoutes.get('/invoices', async (req: Request, res: Response, next: NextFu
 insightsRoutes.get('/invoices/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await insightsService.getInvoiceById(req.params.id as string);
+    if (req.user!.role === UserRole.SALES_REP && invoice.quotation.salesRep.id !== req.user!.userId) {
+      throw new AppError(403, 'FORBIDDEN', 'Sales representatives can only view invoices for their own quotations');
+    }
     res.json({ data: invoice });
   } catch (err) { next(err); }
 });
 
 insightsRoutes.post(
   '/invoices',
-  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = CreateInvoiceSchema.parse(req.body);
@@ -100,7 +105,7 @@ insightsRoutes.post(
 
 // ── Reports ───────────────────────────────────────────────────
 
-insightsRoutes.get('/reports', async (req: Request, res: Response, next: NextFunction) => {
+insightsRoutes.get('/reports', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const filters = ReportFilterSchema.parse(req.query);
     const data = await insightsService.getReportData(filters);

@@ -14,6 +14,71 @@ import { resolveApprovalChain } from '../governance/resolveApprovalChain.js';
 
 // ── Queries ──────────────────────────────────────────────────
 
+export async function assertQuotationAccess(
+  quotationId: string,
+  userId: string,
+  userRole: string,
+  mode: 'read' | 'write' = 'read',
+) {
+  const quote = await prisma.quotation.findUnique({
+    where: { id: quotationId },
+    select: { id: true, salesRepId: true, customerId: true },
+  });
+  if (!quote) throw new AppError(404, 'NOT_FOUND', 'Quotation not found');
+
+  if (userRole === 'CUSTOMER') {
+    if (mode !== 'read' || quote.customerId !== userId) {
+      throw new AppError(403, 'FORBIDDEN', 'Customer access is restricted to the customer portal');
+    }
+    return quote;
+  }
+
+  if (userRole === 'SALES_REP' && quote.salesRepId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'Sales representatives can only access their assigned quotations');
+  }
+
+  return quote;
+}
+
+export async function getCustomerQuotations(customerId: string, page: number, limit: number) {
+  const where = { customerId };
+  const [data, total] = await Promise.all([
+    prisma.quotation.findMany({
+      where,
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        subtotal: true,
+        taxTotal: true,
+        total: true,
+        orderDiscount: true,
+        totalDiscount: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { lines: true } },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.quotation.count({ where }),
+  ]);
+
+  const ids = data.map((q) => q.id);
+  const tokens = await prisma.customerAccessToken.findMany({
+    where: { quotationId: { in: ids }, customerId, expiresAt: { gt: new Date() } },
+    select: { quotationId: true, token: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  const tokenMap = new Map(tokens.map((t) => [t.quotationId, t.token]));
+  return {
+    data: data.map((q) => ({ ...q, portalToken: tokenMap.get(q.id) ?? null })),
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
 export async function getQuotations(filter: QuotationFilter, page: number, limit: number) {
   const where: Record<string, unknown> = {};
   if (filter.status) where.status = filter.status;
@@ -101,17 +166,8 @@ export async function createQuotation(input: CreateQuotationInput, salesRepId: s
     },
   });
 
-  // Pre-generate portal token and thread so quotation is immediately access-ready for customer in portal
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 14);
-  await prisma.customerAccessToken.create({
-    data: {
-      customerId: input.customerId,
-      quotationId: quotation.id,
-      expiresAt,
-    },
-  });
-
+  // Create the negotiation thread now, but do not expose a portal token until
+  // the quotation has passed governance and is formally sent to the customer.
   await prisma.negotiationThread.create({
     data: { quotationId: quotation.id },
   });

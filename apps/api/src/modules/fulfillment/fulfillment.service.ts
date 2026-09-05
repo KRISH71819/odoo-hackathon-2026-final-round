@@ -14,9 +14,11 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export async function getFulfillmentPlans(page: number, limit: number) {
+export async function getFulfillmentPlans(page: number, limit: number, salesRepId?: string) {
+  const where = salesRepId ? { quotation: { salesRepId } } : {};
   const [data, total] = await Promise.all([
     prisma.fulfillmentPlan.findMany({
+      where,
       include: {
         quotation: {
           select: { id: true, number: true, status: true, customer: { select: { name: true } } },
@@ -27,7 +29,7 @@ export async function getFulfillmentPlans(page: number, limit: number) {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.fulfillmentPlan.count(),
+    prisma.fulfillmentPlan.count({ where }),
   ]);
   return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 }

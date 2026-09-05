@@ -12,6 +12,7 @@ import {
   CreateCreditNoteSchema,
 } from '@dealflow360/contracts';
 import * as billingService from './billing.service.js';
+import * as salesService from '../sales/sales.service.js';
 
 export const billingRoutes = Router();
 
@@ -29,7 +30,7 @@ billingRoutes.get('/subscription-plans', async (_req: Request, res: Response, ne
 
 billingRoutes.post(
   '/subscription-plans',
-  requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS),
+  requireRole(UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = CreateSubscriptionPlanSchema.parse(req.body);
@@ -43,6 +44,9 @@ billingRoutes.post(
 
 billingRoutes.get('/schedules/:quotationId', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (req.user!.role === UserRole.SALES_REP) {
+      await salesService.assertQuotationAccess(req.params.quotationId as string, req.user!.userId, req.user!.role, 'read');
+    }
     const schedules = await billingService.getBillingSchedules(req.params.quotationId as string);
     res.json({ data: schedules });
   } catch (err) { next(err); }
@@ -62,7 +66,7 @@ billingRoutes.post(
 
 billingRoutes.post(
   '/schedules/:id/cancel',
-  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = CancelSubscriptionSchema.parse(req.body);

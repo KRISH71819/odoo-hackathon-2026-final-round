@@ -6,9 +6,10 @@ import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { requireRole } from '../../middleware/rbac.middleware.js';
 import { UserRole, ApprovalActionInputSchema } from '@dealflow360/contracts';
 import * as governanceService from './governance.service.js';
+import * as salesService from '../sales/sales.service.js';
 
 export const governanceRoutes = Router();
-governanceRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
+governanceRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Pending Approvals ────────────────────────────────────────
 
@@ -70,6 +71,9 @@ governanceRoutes.post(
 
 governanceRoutes.get('/quotations/:id/audit-trail', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (req.user!.role === UserRole.SALES_REP) {
+      await salesService.assertQuotationAccess(req.params.id as string, req.user!.userId, req.user!.role, 'read');
+    }
     const trail = await governanceService.getQuotationAuditTrail(req.params.id as string);
     res.json({ data: trail });
   } catch (err) { next(err); }
@@ -84,7 +88,7 @@ governanceRoutes.get('/discount-rules', authMiddleware, async (_req: Request, re
   } catch (err) { next(err); }
 });
 
-governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { maxDiscountBps, description } = req.body;
     const rule = await governanceService.updateDiscountRule(req.params.id as string, maxDiscountBps, description);
@@ -92,12 +96,36 @@ governanceRoutes.put('/discount-rules/:id', authMiddleware, requireRole(UserRole
   } catch (err) { next(err); }
 });
 
-governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+governanceRoutes.put('/category-discount-rules/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { maxDiscountBps, description } = req.body;
     const rule = await governanceService.updateCategoryDiscountRule(req.params.id as string, maxDiscountBps, description);
     res.json({ data: rule });
   } catch (err) { next(err); }
 });
+
+
+// ── Approval Chain Configuration ─────────────────────────────
+governanceRoutes.get(
+  '/approval-thresholds',
+  requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const thresholds = await governanceService.getApprovalThresholds();
+      res.json({ data: thresholds });
+    } catch (err) { next(err); }
+  },
+);
+
+governanceRoutes.put(
+  '/approval-thresholds/:id',
+  requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const threshold = await governanceService.updateApprovalThreshold(req.params.id as string, req.body ?? {});
+      res.json({ data: threshold });
+    } catch (err) { next(err); }
+  },
+);
 
 export default governanceRoutes;

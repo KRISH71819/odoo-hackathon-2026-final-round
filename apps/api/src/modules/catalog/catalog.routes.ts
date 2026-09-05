@@ -16,7 +16,7 @@ import {
 import * as catalogService from './catalog.service.js';
 
 export const catalogRoutes = Router();
-catalogRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS, UserRole.CUSTOMER));
+catalogRoutes.use(authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS));
 
 // ── Products ─────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ catalogRoutes.get('/products/:id', authMiddleware, async (req: Request, res: Res
   } catch (err) { next(err); }
 });
 
-catalogRoutes.post('/products', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
+catalogRoutes.post('/products', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = CreateProductSchema.parse(req.body);
     const product = await catalogService.createProduct(input);
@@ -46,7 +46,7 @@ catalogRoutes.post('/products', authMiddleware, requireRole(UserRole.ADMIN, User
   } catch (err) { next(err); }
 });
 
-catalogRoutes.put('/products/:id', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER), async (req: Request, res: Response, next: NextFunction) => {
+catalogRoutes.put('/products/:id', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = UpdateProductSchema.parse(req.body);
     const product = await catalogService.updateProduct(req.params.id as string, input);
@@ -63,7 +63,7 @@ catalogRoutes.get('/price-lists', authMiddleware, async (_req: Request, res: Res
   } catch (err) { next(err); }
 });
 
-catalogRoutes.post('/price-lists', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+catalogRoutes.post('/price-lists', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = CreatePriceListSchema.parse(req.body);
     const list = await catalogService.createPriceList(input);
@@ -71,7 +71,7 @@ catalogRoutes.post('/price-lists', authMiddleware, requireRole(UserRole.ADMIN, U
   } catch (err) { next(err); }
 });
 
-catalogRoutes.post('/price-lists/:id/items', authMiddleware, requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+catalogRoutes.post('/price-lists/:id/items', authMiddleware, requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const input = CreatePriceListItemSchema.parse(req.body);
     const item = await catalogService.addPriceListItem(req.params.id as string, input);

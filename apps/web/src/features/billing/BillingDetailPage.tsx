@@ -12,13 +12,19 @@ import {
   Spinner,
 } from '../../components/ui';
 import { formatCurrency, formatDate } from '../../lib/format';
-import { useBillingSchedules, useCancelSubscription } from './useBilling';
+import { useBillingSchedules, useCancelSubscription, useProrateSchedule } from './useBilling';
+import { useAuth } from '../../lib/auth.js';
 
 export default function BillingDetailPage() {
   const { quotationId } = useParams<{ quotationId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canReconcile = ['FINANCE_OPS', 'ADMIN'].includes(user?.role ?? '');
   const { data, isLoading, refetch } = useBillingSchedules(quotationId!);
   const cancel = useCancelSubscription();
+  const prorate = useProrateSchedule();
+  const [prorateTarget, setProrateTarget] = useState<string | null>(null);
+  const [prorateQty, setProrateQty] = useState('1');
   const [cancelReason, setCancelReason] = useState('');
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,18 +116,27 @@ export default function BillingDetailPage() {
                         <StatusBadge status={schedule.status} />
                       </td>
                       <td className="py-2 text-right">
-                        {schedule.status === 'ACTIVE' && (
-                          <button
-                            className="text-xs text-df-danger hover:underline"
-                            onClick={() => setCancelTarget(schedule.id)}
-                          >
-                            Cancel
-                          </button>
+                        {canReconcile && schedule.status === 'ACTIVE' && (
+                          <div className="flex justify-end gap-2">
+                            <button className="text-xs text-df-nav hover:underline" onClick={() => { setProrateTarget(schedule.id); setProrateQty(String(schedule.quotationLine?.quantity ?? 1)); }}>Prorate</button>
+                            <button className="text-xs text-df-danger hover:underline" onClick={() => setCancelTarget(schedule.id)}>Cancel</button>
+                          </div>
                         )}
                       </td>
                     </tr>
+                    {canReconcile && prorateTarget === schedule.id && (
+                      <tr className="bg-df-border/20">
+                        <td colSpan={6} className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <input className="w-28 px-2 py-1 text-xs bg-df-surface border border-df-border rounded text-df-text" type="number" min="1" value={prorateQty} onChange={(e) => setProrateQty(e.target.value)} />
+                            <PrimaryButton disabled={prorate.isPending} onClick={async () => { await prorate.mutateAsync({ scheduleId: schedule.id, data: { newQuantity: Number(prorateQty), changeDate: new Date().toISOString() } }); setProrateTarget(null); refetch(); }}>Apply Proration</PrimaryButton>
+                            <button className="text-xs text-df-text-muted" onClick={() => setProrateTarget(null)}>Dismiss</button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     {/* Inline cancel form */}
-                    {cancelTarget === schedule.id && (
+                    {canReconcile && cancelTarget === schedule.id && (
                       <tr className="bg-df-border/20">
                         <td colSpan={6} className="px-4 py-3">
                           <div className="flex items-center gap-2">

@@ -25,6 +25,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   signup: (email: string, password: string, name: string, role?: UserRole) => Promise<AuthUser>;
+  staffSignup: (email: string, password: string, name: string, inviteCode: string) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -65,6 +66,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.data.user;
   }, []);
 
+  const staffSignup = useCallback(async (email: string, password: string, name: string, inviteCode: string) => {
+    const res = await api.post<ApiResponse<LoginResponse>>('/auth/staff-signup', { email, password, name, inviteCode });
+    setToken(res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
+  }, []);
+
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
@@ -78,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         signup,
+        staffSignup,
         logout,
       }}
     >

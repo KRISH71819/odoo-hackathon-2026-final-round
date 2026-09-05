@@ -12,6 +12,8 @@ import {
   Spinner,
 } from '../../components/ui';
 import { formatCurrency } from '../../lib/format';
+import { useAuth } from '../../lib/auth.js';
+import { UserRole } from '@dealflow360/contracts';
 import {
   useFulfillmentPlan,
   useAcceptFulfillmentPlan,
@@ -22,6 +24,8 @@ import {
 } from './useFulfillment';
 
 export default function FulfillmentDetailPage() {
+  const { user } = useAuth();
+  const canOperate = user?.role === UserRole.FINANCE_OPS || user?.role === UserRole.ADMIN;
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, refetch } = useFulfillmentPlan(id!);
@@ -132,7 +136,7 @@ export default function FulfillmentDetailPage() {
         </Panel>
       )}
 
-      {showOverride && plan.status === 'PENDING' && (
+      {canOperate && showOverride && plan.status === 'PENDING' && (
         <Panel title="Manual Override" className="mb-4">
           <div className="space-y-3">
             {overrideLines.map((line, index) => (
@@ -155,6 +159,9 @@ export default function FulfillmentDetailPage() {
 
       {/* Actions */}
       <Panel title="Actions">
+        {!canOperate ? (
+          <p className="text-xs text-df-text-muted">Read-only tracking. Fulfillment decisions are handled by Finance / Operations.</p>
+        ) : (
         <div className="flex flex-wrap gap-2">
           {plan.status === 'PENDING' && (
             <>
@@ -192,6 +199,7 @@ export default function FulfillmentDetailPage() {
             </PrimaryButton>
           )}
         </div>
+        )}
       </Panel>
     </div>
   );

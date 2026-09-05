@@ -22,6 +22,16 @@ export const SignupRequestSchema = z.object({
 
 export type SignupRequest = z.infer<typeof SignupRequestSchema>;
 
+
+export const StaffSignupRequestSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  name: z.string().min(1, 'Name is required').max(100),
+  inviteCode: z.string().min(1, 'Staff invite code is required'),
+});
+
+export type StaffSignupRequest = z.infer<typeof StaffSignupRequestSchema>;
+
 export const AuthResponseSchema = z.object({
   token: z.string(),
   user: z.object({

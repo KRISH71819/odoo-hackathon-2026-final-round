@@ -14,6 +14,9 @@ import { useAuth } from '../../lib/auth.js';
 
 export default function AdminConfigPage() {
   const { user: currentUser } = useAuth();
+  const canGovernance = currentUser?.role === 'ADMIN' || currentUser?.role === 'SALES_MANAGER';
+  const canOperationsConfig = currentUser?.role === 'ADMIN' || currentUser?.role === 'FINANCE_OPS';
+  const isAdmin = currentUser?.role === 'ADMIN';
   const { data: productsData } = useProducts();
   const { data: priceListsData, refetch: refetchPrices } = usePriceLists();
   const { data: warehousesData, refetch: refetchWarehouses } = useWarehouses();
@@ -24,6 +27,7 @@ export default function AdminConfigPage() {
   });
 
   const [plans, setPlans] = useState<any[]>([]);
+  const [approvalThresholds, setApprovalThresholds] = useState<any[]>([]);
   const [message, setMessage] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'SALES_REP' });
@@ -52,11 +56,18 @@ export default function AdminConfigPage() {
     currencyCode: 'USD',
   });
 
+  const [priceListItem, setPriceListItem] = useState({
+    priceListId: '',
+    productId: '',
+    overridePrice: 0,
+  });
+
   const loadConfiguration = async () => {
-    const [discountResponse, subscriptionResponse, usersResponse] = await Promise.all([
-      api.get<any>('/discount-rules'),
-      api.get<any>('/billing/subscription-plans'),
-      currentUser?.role !== 'CUSTOMER' ? api.get<any>('/auth/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+    const [discountResponse, subscriptionResponse, usersResponse, thresholdsResponse] = await Promise.all([
+      canGovernance ? api.get<any>('/discount-rules') : Promise.resolve({ data: { tierRules: [], categoryRules: [] } }),
+      isAdmin ? api.get<any>('/billing/subscription-plans') : Promise.resolve({ data: [] }),
+      isAdmin ? api.get<any>('/auth/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+      canGovernance ? api.get<any>('/approval-thresholds') : Promise.resolve({ data: [] }),
     ]);
 
     setDiscounts(
@@ -68,6 +79,7 @@ export default function AdminConfigPage() {
 
     setPlans(subscriptionResponse.data ?? []);
     setUsers(usersResponse.data ?? []);
+    setApprovalThresholds(thresholdsResponse.data ?? []);
   };
 
   useEffect(() => {
@@ -105,7 +117,7 @@ export default function AdminConfigPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        <Panel title="Discount Governance">
+        {canGovernance && <Panel title="Discount Governance">
           <div className="space-y-3">
             {(discounts.tierRules ?? []).map((rule: any) => (
               <div
@@ -179,9 +191,33 @@ export default function AdminConfigPage() {
               </div>
             ))}
           </div>
-        </Panel>
+        </Panel>}
 
-        <Panel title="Warehouses & Stock">
+        {canGovernance && <Panel title="Approval Chain">
+          <div className="space-y-3">
+            {approvalThresholds.map((t: any) => {
+              let approvers: string[] = [];
+              try { approvers = JSON.parse(t.requiredApprovers || '[]'); } catch {}
+              return (
+                <div key={t.id} className="grid grid-cols-1 sm:grid-cols-[120px_1fr_1fr_auto] gap-2 items-end">
+                  <div>
+                    <div className="text-xs text-df-text font-medium">{t.id?.startsWith('at-') ? t.id.replace('at-', '').toUpperCase() : (t.riskLevel || 'RISK')}</div>
+                    <div className="text-[11px] text-df-text-muted">Risk band {t.minRiskScore}–{t.maxRiskScore}</div>
+                  </div>
+                  <div className="text-xs text-df-text-muted pb-2">{t.description || 'Approval routing rule'}</div>
+                  <Select label="Approval chain" value={approvers.join(',')} onChange={(e) => setApprovalThresholds((xs) => xs.map((x) => x.id === t.id ? { ...x, requiredApprovers: JSON.stringify(e.target.value ? e.target.value.split(',') : []) } : x))}>
+                    <option value="">Auto approve</option>
+                    <option value="SALES_MANAGER">Sales Manager</option>
+                    <option value="SALES_MANAGER,FINANCE_OPS">Manager → Finance</option>
+                  </Select>
+                  <PrimaryButton onClick={async () => { let roles: string[] = []; try { roles = JSON.parse(t.requiredApprovers || '[]'); } catch {} await api.put(`/approval-thresholds/${t.id}`, { requiredApprovers: roles, description: t.description ?? '' }); await loadConfiguration(); setMessage('Approval chain saved'); }}>Save</PrimaryButton>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>}
+
+        {canOperationsConfig && <Panel title="Warehouses & Stock">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input
               label="Warehouse Name"
@@ -310,9 +346,9 @@ export default function AdminConfigPage() {
           >
             Set Stock
           </PrimaryButton>
-        </Panel>
+        </Panel>}
 
-        <Panel title="Subscription Plans">
+        {isAdmin && <Panel title="Subscription Plans">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input
               label="Plan Name"
@@ -384,9 +420,9 @@ export default function AdminConfigPage() {
               </div>
             ))}
           </div>
-        </Panel>
+        </Panel>}
 
-        <Panel title="Price Lists">
+        {isAdmin && <Panel title="Price Lists">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input
               label="Name"
@@ -459,13 +495,41 @@ export default function AdminConfigPage() {
               </div>
             ))}
           </div>
-        </Panel>
+
+          <div className="border-t border-df-border my-4" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Select label="Price List" value={priceListItem.priceListId} onChange={(e) => setPriceListItem({ ...priceListItem, priceListId: e.target.value })}>
+              <option value="">Select price list</option>
+              {(priceListsData?.data ?? []).map((item: any) => <option key={item.id} value={item.id}>{item.name} ({item.customerTier})</option>)}
+            </Select>
+            <Select label="Product" value={priceListItem.productId} onChange={(e) => setPriceListItem({ ...priceListItem, productId: e.target.value })}>
+              <option value="">Select product</option>
+              {(productsData?.data ?? []).map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </Select>
+            <Input label="Override Price (cents)" type="number" min="0" value={priceListItem.overridePrice} onChange={(e) => setPriceListItem({ ...priceListItem, overridePrice: Number(e.target.value) })} />
+          </div>
+          <PrimaryButton
+            className="mt-3"
+            disabled={!priceListItem.priceListId || !priceListItem.productId}
+            onClick={async () => {
+              await api.post(`/price-lists/${priceListItem.priceListId}/items`, {
+                productId: priceListItem.productId,
+                overridePrice: Number(priceListItem.overridePrice),
+              });
+              setPriceListItem({ priceListId: '', productId: '', overridePrice: 0 });
+              await refetchPrices();
+              setMessage('Tier price override saved');
+            }}
+          >
+            Save Tier Price
+          </PrimaryButton>
+        </Panel>}
         {/* Internal: User Management */}
-        {currentUser?.role !== 'CUSTOMER' && (
+        {isAdmin && (
           <Panel title="User Management" className="lg:col-span-2">
             <div className="space-y-4">
               <p className="text-xs text-charcoal-400">
-                Create internal employee accounts. Public signup creates customer accounts only.
+                Create internal employee accounts. Customer signup is public; Sales Rep self-signup requires the configured staff invite code.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">

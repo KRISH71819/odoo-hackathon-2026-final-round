@@ -38,7 +38,7 @@ import { UserRole } from '@dealflow360/contracts';
 const ReportsPage = React.lazy(() => import('../features/reports/ReportsPage.js'));
 
 const MANAGERS = [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS];
-const CONFIG_ROLES = [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS];
+const CONFIG_ROLES = [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS];
 
 export function AppRouter() {
   return (

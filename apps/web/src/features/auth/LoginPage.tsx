@@ -17,12 +17,13 @@ const DEMO_USERS = [
 ];
 
 export function LoginPage() {
-  const { login, signup, logout, user, isAuthenticated, isLoading } = useAuth();
+  const { login, signup, staffSignup, logout, user, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('admin@dealflow.com');
   const [password, setPassword] = useState('password123');
   const [name, setName] = useState('');
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'staff-signup'>('login');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -45,7 +46,9 @@ export function LoginPage() {
     try {
       const authUser = mode === 'signup'
         ? await signup(email, password, name)
-        : await login(email, password);
+        : mode === 'staff-signup'
+          ? await staffSignup(email, password, name, inviteCode)
+          : await login(email, password);
 
       if (authUser.role === 'CUSTOMER') {
         navigate('/my-portal', { replace: true });
@@ -53,7 +56,7 @@ export function LoginPage() {
         navigate('/', { replace: true });
       }
     } catch (err: any) {
-      setError(err.message || (mode === 'signup' ? 'Signup failed' : 'Login failed'));
+      setError(err.message || (mode === 'login' ? 'Login failed' : 'Signup failed'));
     } finally {
       setLoading(false);
     }
@@ -91,9 +94,9 @@ export function LoginPage() {
         {/* Login/Signup Card */}
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>{mode === 'signup' ? 'Create Account' : 'Sign In'}</CardTitle>
+            <CardTitle>{mode === 'login' ? 'Sign In' : mode === 'staff-signup' ? 'Create Sales Rep Account' : 'Create Customer Account'}</CardTitle>
             <CardDescription>
-              {mode === 'signup' ? 'Create a customer account to view and manage your quotes' : 'Enter your credentials to continue'}
+              {mode === 'login' ? 'Enter your credentials to continue' : mode === 'staff-signup' ? 'Sales Rep signup requires the staff invite code' : 'Create a customer account to view and manage your quotes'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -104,7 +107,7 @@ export function LoginPage() {
                 </div>
               )}
 
-              {mode === 'signup' && (
+              {mode !== 'login' && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="name">Full Name</label>
                   <Input
@@ -142,22 +145,22 @@ export function LoginPage() {
                 />
               </div>
 
+              {mode === 'staff-signup' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="inviteCode">Staff Invite Code</label>
+                  <Input id="inviteCode" type="password" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Provided by admin" required />
+                </div>
+              )}
+
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Please wait...' : mode === 'signup' ? 'Create Customer Account' : 'Sign In'}
+                {loading ? 'Please wait...' : mode === 'signup' ? 'Create Customer Account' : mode === 'staff-signup' ? 'Create Sales Rep Account' : 'Sign In'}
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === 'login' ? 'signup' : 'login');
-                  setError('');
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
-              >
-                {mode === 'login' ? 'Customer? Create an account' : 'Already have an account? Sign in'}
-              </button>
+            <div className="mt-4 flex flex-wrap justify-center gap-3 text-center">
+              {mode !== 'login' && <button type="button" onClick={() => { setMode('login'); setError(''); }} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4">Already have an account? Sign in</button>}
+              {mode !== 'signup' && <button type="button" onClick={() => { setMode('signup'); setError(''); }} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4">Customer signup</button>}
+              {mode !== 'staff-signup' && <button type="button" onClick={() => { setMode('staff-signup'); setError(''); }} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4">Sales Rep signup</button>}
             </div>
 
             {/* Demo Accounts */}

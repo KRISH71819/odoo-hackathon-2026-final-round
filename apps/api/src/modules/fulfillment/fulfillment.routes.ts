@@ -6,6 +6,8 @@ import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { requireRole } from '../../middleware/rbac.middleware.js';
 import { UserRole, OverrideFulfillmentPlanSchema, PaginationQuerySchema } from '@dealflow360/contracts';
 import * as fulfillmentService from './fulfillment.service.js';
+import * as salesService from '../sales/sales.service.js';
+import { AppError } from '../../shared/errors.js';
 
 export const fulfillmentRoutes = Router();
 
@@ -18,7 +20,8 @@ fulfillmentRoutes.use(requireRole(UserRole.ADMIN, UserRole.SALES_REP, UserRole.S
 fulfillmentRoutes.get('/plans', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page = 1, pageSize = 20 } = PaginationQuerySchema.parse(req.query) as any;
-    const result = await fulfillmentService.getFulfillmentPlans(Number(page), Number(pageSize));
+    const salesRepId = req.user!.role === UserRole.SALES_REP ? req.user!.userId : undefined;
+    const result = await fulfillmentService.getFulfillmentPlans(Number(page), Number(pageSize), salesRepId);
     res.json(result);
   } catch (err) { next(err); }
 });
@@ -33,7 +36,7 @@ fulfillmentRoutes.get('/warehouses', async (_req: Request, res: Response, next: 
 });
 
 
-fulfillmentRoutes.post('/warehouses', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+fulfillmentRoutes.post('/warehouses', requireRole(UserRole.ADMIN, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, code, address, shippingCostWeight } = req.body ?? {};
     if (!name || !code) throw new Error('name and code are required');
@@ -50,13 +53,16 @@ const handleUpsertStock = async (req: Request, res: Response, next: NextFunction
   } catch (err) { next(err); }
 };
 
-fulfillmentRoutes.put('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), handleUpsertStock);
-fulfillmentRoutes.post('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), handleUpsertStock);
+fulfillmentRoutes.put('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.FINANCE_OPS), handleUpsertStock);
+fulfillmentRoutes.post('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.FINANCE_OPS), handleUpsertStock);
 
 // ── Get plan for a quotation ──────────────────────────────────
 
 fulfillmentRoutes.get('/quotations/:quotationId/plan', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (req.user!.role === UserRole.SALES_REP) {
+      await salesService.assertQuotationAccess(req.params.quotationId as string, req.user!.userId, req.user!.role, 'read');
+    }
     const plan = await fulfillmentService.getFulfillmentPlanForQuotation(req.params.quotationId as string);
     res.json({ data: plan });
   } catch (err) { next(err); }
@@ -66,7 +72,7 @@ fulfillmentRoutes.get('/quotations/:quotationId/plan', async (req: Request, res:
 
 fulfillmentRoutes.post(
   '/quotations/:quotationId/suggest',
-  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const plan = await fulfillmentService.suggestFulfillmentPlan(
@@ -83,6 +89,9 @@ fulfillmentRoutes.post(
 fulfillmentRoutes.get('/plans/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const plan = await fulfillmentService.getFulfillmentPlanById(req.params.id as string);
+    if (req.user!.role === UserRole.SALES_REP && plan.quotation.salesRepId !== req.user!.userId) {
+      throw new AppError(403, 'FORBIDDEN', 'Sales representatives can only view fulfillment for their own quotations');
+    }
     res.json({ data: plan });
   } catch (err) { next(err); }
 });
@@ -91,7 +100,7 @@ fulfillmentRoutes.get('/plans/:id', async (req: Request, res: Response, next: Ne
 
 fulfillmentRoutes.post(
   '/plans/:id/accept',
-  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const plan = await fulfillmentService.acceptFulfillmentPlan(
@@ -125,7 +134,7 @@ fulfillmentRoutes.put(
 
 fulfillmentRoutes.post(
   '/plans/:id/backorder',
-  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const plan = await fulfillmentService.createBackorder(
@@ -141,7 +150,7 @@ fulfillmentRoutes.post(
 
 fulfillmentRoutes.post(
   '/plans/:id/consolidate',
-  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN, UserRole.SALES_MANAGER),
+  requireRole(UserRole.FINANCE_OPS, UserRole.ADMIN),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const plan = await fulfillmentService.consolidateBackorder(

@@ -42,7 +42,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { title: 'Approvals', url: '/approvals', icon: CheckSquare, roles: MANAGERS },
       { title: 'Deal Health', url: '/deal-health', icon: Activity, roles: MANAGERS },
-      { title: 'Configuration', url: '/configuration', icon: Settings, roles: ALL_INTERNAL },
+      { title: 'Configuration', url: '/configuration', icon: Settings, roles: [UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS] },
     ],
   },
   {
