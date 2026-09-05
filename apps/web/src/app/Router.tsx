@@ -11,36 +11,22 @@ import QuotationListPage from '../features/quotation/QuotationListPage.js';
 import QuotationBuilderPage from '../features/quotation/QuotationBuilderPage.js';
 import ApprovalListPage from '../features/approval/ApprovalListPage.js';
 import ApprovalDetailPage from '../features/approval/ApprovalDetailPage.js';
+// Phase 3 – Fulfillment
+import FulfillmentListPage from '../features/fulfillment/FulfillmentListPage.js';
+import FulfillmentDetailPage from '../features/fulfillment/FulfillmentDetailPage.js';
+// Phase 3 – Billing/Subscriptions
+import SubscriptionListPage from '../features/billing/SubscriptionListPage.js';
+import BillingDetailPage from '../features/billing/BillingDetailPage.js';
+// Phase 3 – Customer Portal (public, no internal layout)
+import CustomerPortalPage from '../features/portal/CustomerPortalPage.js';
 
-// ── Placeholder route configs for future phases ──
+// ── Placeholder route configs for Phase 4 ──
 const placeholders = {
   customers: {
     title: 'Customers',
     phase: 2,
     description: 'Customer management with tier tracking (Bronze, Silver, Gold).',
     features: ['Customer list with tier badges', 'Customer detail with quotation history', 'Tier-based pricing rules'],
-  },
-  fulfillment: {
-    title: 'Fulfillment & Stock',
-    phase: 3,
-    description: 'Warehouse fulfillment split, stock tracking, and backorder management.',
-    features: [
-      'Recommended warehouse split based on live stock',
-      'Manual override with validation',
-      'Backorder creation and consolidation',
-      'Shipment count and cost estimation',
-    ],
-  },
-  subscriptions: {
-    title: 'Subscriptions',
-    phase: 3,
-    description: 'Subscription plan management with billing schedules.',
-    features: [
-      'Active subscriptions list',
-      'One-time vs recurring line separation',
-      'Billing schedule display',
-      'Mid-cycle proration and cancellation',
-    ],
   },
   invoices: {
     title: 'Invoices',
@@ -83,18 +69,29 @@ export function AppRouter() {
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Protected routes */}
+      {/* Customer portal (public, token-based, no internal layout) */}
+      <Route path="/portal/:token" element={<CustomerPortalPage />} />
+
+      {/* Internal protected routes */}
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
-        
-        {/* Phase 2 implemented routes */}
+
+        {/* Phase 2 */}
         <Route path="products" element={<ProductListPage />} />
         <Route path="quotations" element={<QuotationListPage />} />
         <Route path="quotations/:id" element={<QuotationBuilderPage />} />
         <Route path="approvals" element={<ApprovalListPage />} />
         <Route path="approvals/:id" element={<ApprovalDetailPage />} />
 
-        {/* Placeholder routes for remaining phases */}
+        {/* Phase 3 – Fulfillment */}
+        <Route path="fulfillment" element={<FulfillmentListPage />} />
+        <Route path="fulfillment/:id" element={<FulfillmentDetailPage />} />
+
+        {/* Phase 3 – Subscriptions / Billing */}
+        <Route path="subscriptions" element={<SubscriptionListPage />} />
+        <Route path="billing/:quotationId" element={<BillingDetailPage />} />
+
+        {/* Phase 4 placeholders */}
         {Object.entries(placeholders).map(([path, config]) => (
           <Route
             key={path}

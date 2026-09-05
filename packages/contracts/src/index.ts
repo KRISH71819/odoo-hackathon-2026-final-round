@@ -5,3 +5,6 @@ export * from './schemas.js';
 export * from './catalog.schemas.js';
 export * from './sales.schemas.js';
 export * from './governance.schemas.js';
+export * from './fulfillment.schemas.js';
+export * from './billing.schemas.js';
+export * from './portal.schemas.js';
