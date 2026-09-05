@@ -5,7 +5,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './Layout.js';
 import { LoginPage } from '../features/auth/LoginPage.js';
 import { DashboardPage } from '../features/dashboard/DashboardPage.js';
-import { PlaceholderPage } from '../features/shared/PlaceholderPage.js';
 import ProductListPage from '../features/catalog/ProductListPage.js';
 import QuotationListPage from '../features/quotation/QuotationListPage.js';
 import QuotationBuilderPage from '../features/quotation/QuotationBuilderPage.js';
@@ -17,51 +16,15 @@ import FulfillmentDetailPage from '../features/fulfillment/FulfillmentDetailPage
 // Phase 3 – Billing/Subscriptions
 import SubscriptionListPage from '../features/billing/SubscriptionListPage.js';
 import BillingDetailPage from '../features/billing/BillingDetailPage.js';
-// Phase 3 – Customer Portal (public, no internal layout)
+// Phase 3 – Customer Portal (public, token-based, no internal layout)
 import CustomerPortalPage from '../features/portal/CustomerPortalPage.js';
+// Phase 4 – Invoice, Deal Health, Reports
+import InvoiceListPage from '../features/invoice/InvoiceListPage.js';
+import InvoiceDetailPage from '../features/invoice/InvoiceDetailPage.js';
+import DealHealthPage from '../features/dealhealth/DealHealthPage.js';
 
-// ── Placeholder route configs for Phase 4 ──
-const placeholders = {
-  customers: {
-    title: 'Customers',
-    phase: 2,
-    description: 'Customer management with tier tracking (Bronze, Silver, Gold).',
-    features: ['Customer list with tier badges', 'Customer detail with quotation history', 'Tier-based pricing rules'],
-  },
-  invoices: {
-    title: 'Invoices',
-    phase: 4,
-    description: 'Invoice generation, payment tracking, and credit notes.',
-    features: [
-      'Invoice list with status tracking',
-      'Payment recording',
-      'Credit note management',
-      'Invoice status lifecycle',
-    ],
-  },
-  'deal-health': {
-    title: 'Deal Health & Anomalies',
-    phase: 4,
-    description: 'Dashboard for stalled deals, discount anomalies, and delivery slippage.',
-    features: [
-      'Stalled deal detection',
-      'Discount anomaly alerts',
-      'Delivery promise slippage',
-      'Nudge/escalation actions',
-    ],
-  },
-  reports: {
-    title: 'Reports & Analytics',
-    phase: 4,
-    description: 'Sales performance reports with filtering and PDF/XLS export.',
-    features: [
-      'Period, rep, status, product filters',
-      'PDF and XLS export',
-      'Sales performance charts',
-      'KPI cards with live data',
-    ],
-  },
-};
+// Lazy-load reports (heavy charting deps)
+const ReportsPage = React.lazy(() => import('../features/reports/ReportsPage.js'));
 
 export function AppRouter() {
   return (
@@ -91,14 +54,19 @@ export function AppRouter() {
         <Route path="subscriptions" element={<SubscriptionListPage />} />
         <Route path="billing/:quotationId" element={<BillingDetailPage />} />
 
-        {/* Phase 4 placeholders */}
-        {Object.entries(placeholders).map(([path, config]) => (
-          <Route
-            key={path}
-            path={path}
-            element={<PlaceholderPage {...config} />}
-          />
-        ))}
+        {/* Phase 4 – Invoices */}
+        <Route path="invoices" element={<InvoiceListPage />} />
+        <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+
+        {/* Phase 4 – Deal Health */}
+        <Route path="deal-health" element={<DealHealthPage />} />
+
+        {/* Phase 4 – Reports (lazy) */}
+        <Route path="reports" element={
+          <React.Suspense fallback={<div className="flex items-center justify-center p-8"><div className="w-6 h-6 border-2 border-df-border border-t-df-nav rounded-full animate-spin" /></div>}>
+            <ReportsPage />
+          </React.Suspense>
+        } />
       </Route>
 
       {/* Catch-all */}
