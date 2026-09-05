@@ -29,7 +29,7 @@ billingRoutes.get('/subscription-plans', async (_req: Request, res: Response, ne
 
 billingRoutes.post(
   '/subscription-plans',
-  requireRole(UserRole.ADMIN),
+  requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = CreateSubscriptionPlanSchema.parse(req.body);

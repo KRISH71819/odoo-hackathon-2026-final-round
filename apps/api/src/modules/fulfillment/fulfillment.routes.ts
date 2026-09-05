@@ -33,7 +33,7 @@ fulfillmentRoutes.get('/warehouses', async (_req: Request, res: Response, next: 
 });
 
 
-fulfillmentRoutes.post('/warehouses', requireRole(UserRole.ADMIN), async (req: Request, res: Response, next: NextFunction) => {
+fulfillmentRoutes.post('/warehouses', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, code, address, shippingCostWeight } = req.body ?? {};
     if (!name || !code) throw new Error('name and code are required');
@@ -42,13 +42,16 @@ fulfillmentRoutes.post('/warehouses', requireRole(UserRole.ADMIN), async (req: R
   } catch (err) { next(err); }
 });
 
-fulfillmentRoutes.put('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.FINANCE_OPS), async (req: Request, res: Response, next: NextFunction) => {
+const handleUpsertStock = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { productId, quantity } = req.body ?? {};
     const stock = await fulfillmentService.upsertWarehouseStock(req.params.id as string, String(productId), Number(quantity));
     res.json({ data: stock });
   } catch (err) { next(err); }
-});
+};
+
+fulfillmentRoutes.put('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), handleUpsertStock);
+fulfillmentRoutes.post('/warehouses/:id/stock', requireRole(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.FINANCE_OPS), handleUpsertStock);
 
 // ── Get plan for a quotation ──────────────────────────────────
 
