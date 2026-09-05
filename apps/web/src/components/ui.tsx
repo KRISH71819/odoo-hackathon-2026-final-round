@@ -1,9 +1,23 @@
-// ── DealFlow360 – Reusable UI Components ──
-// Unified compact dark-themed enterprise components.
+// ── DealFlow360 – UI Component Barrel (backward compat + shadcn bridge) ──
+// Re-exports shadcn components AND legacy helpers so existing pages keep working.
 
 import React from 'react';
+import { cn } from '../lib/utils.js';
 
-// ── PageHeader ──
+// ── Re-export shadcn primitives ──
+export { Button as ShadcnButton, buttonVariants } from './ui/button.js';
+export { Card as ShadcnCard, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card.js';
+export { Badge as ShadcnBadge, badgeVariants } from './ui/badge.js';
+export { Input as ShadcnInput } from './ui/input.js';
+export { Separator } from './ui/separator.js';
+export { Skeleton } from './ui/skeleton.js';
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from './ui/table.js';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs.js';
+export { Avatar, AvatarImage, AvatarFallback } from './ui/avatar.js';
+export { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator, BreadcrumbEllipsis } from './ui/breadcrumb.js';
+export { Toaster } from './ui/sonner.js';
+
+// ── PageHeader (legacy compat, now using shadcn colors) ──
 export function PageHeader({
   title,
   subtitle,
@@ -19,15 +33,15 @@ export function PageHeader({
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
-        <h1 className="text-xl font-semibold text-df-text">{title}</h1>
-        {subtitle && <p className="text-sm text-df-text-muted mt-0.5">{subtitle}</p>}
+        <h1 className="text-xl font-bold text-foreground tracking-tight">{title}</h1>
+        {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
       {actionContent && <div className="flex items-center gap-2">{actionContent}</div>}
     </div>
   );
 }
 
-// ── Panel ──
+// ── Panel (maps to shadcn Card) ──
 export function Panel({
   title,
   children,
@@ -38,45 +52,48 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <div className={`bg-df-surface border border-df-border rounded-md ${className}`}>
+    <div className={cn('rounded-xl border bg-card text-card-foreground shadow', className)}>
       {title && (
-        <div className="px-4 py-3 border-b border-df-border">
-          <h2 className="text-sm font-medium text-df-text">{title}</h2>
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         </div>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   );
 }
 
-// ── StatusBadge ──
-const statusColors: Record<string, string> = {
-  DRAFT: 'bg-df-border text-df-text-muted border border-df-border',
-  REVISION: 'bg-amber-950/40 text-amber-400 border border-amber-800',
-  PENDING_MANAGER: 'bg-blue-950/40 text-blue-400 border border-blue-800',
-  PENDING_FINANCE: 'bg-indigo-950/40 text-indigo-400 border border-indigo-800',
-  APPROVED: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
-  REJECTED: 'bg-rose-950/40 text-rose-400 border border-rose-800',
-  FULFILLMENT_READY: 'bg-blue-950/40 text-blue-400 border border-blue-800',
-  CONFIRMED: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
-  BILLED: 'bg-blue-950/40 text-blue-400 border border-blue-800',
-  PAID: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
-  PENDING: 'bg-amber-950/40 text-amber-400 border border-amber-800',
-  RETURNED: 'bg-amber-950/40 text-amber-400 border border-amber-800',
-  NONE: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
-  LOW: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
-  MEDIUM: 'bg-amber-950/40 text-amber-400 border border-amber-800',
-  HIGH: 'bg-rose-950/40 text-rose-400 border border-rose-800',
-  ACTIVE: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800',
-  INACTIVE: 'bg-df-border text-df-text-muted border border-df-border',
+// ── StatusBadge (pure black & white monochrome) ──
+const statusConfig: Record<string, { classes: string }> = {
+  DRAFT: { classes: 'bg-neutral-900 text-neutral-300 border-neutral-700' },
+  REVISION: { classes: 'bg-neutral-800 text-neutral-200 border-neutral-600' },
+  PENDING_MANAGER: { classes: 'bg-neutral-800 text-white border-neutral-600' },
+  PENDING_FINANCE: { classes: 'bg-neutral-800 text-white border-neutral-600' },
+  APPROVED: { classes: 'bg-white text-black border-white font-semibold' },
+  REJECTED: { classes: 'bg-neutral-950 text-neutral-400 border-neutral-700 line-through' },
+  FULFILLMENT_READY: { classes: 'bg-neutral-100 text-black border-neutral-300 font-medium' },
+  CONFIRMED: { classes: 'bg-white text-black border-white font-semibold' },
+  BILLED: { classes: 'bg-neutral-800 text-neutral-200 border-neutral-700' },
+  PAID: { classes: 'bg-white text-black border-white font-semibold' },
+  PENDING: { classes: 'bg-neutral-800 text-neutral-300 border-neutral-700' },
+  RETURNED: { classes: 'bg-neutral-900 text-neutral-400 border-neutral-700' },
+  NONE: { classes: 'bg-neutral-900 text-neutral-400 border-neutral-700' },
+  LOW: { classes: 'bg-neutral-900 text-neutral-300 border-neutral-700' },
+  MEDIUM: { classes: 'bg-neutral-800 text-neutral-200 border-neutral-600' },
+  HIGH: { classes: 'bg-white text-black border-white font-bold' },
+  ACTIVE: { classes: 'bg-white text-black border-white font-semibold' },
+  INACTIVE: { classes: 'bg-neutral-900 text-neutral-400 border-neutral-800' },
+  BRONZE: { classes: 'bg-neutral-900 text-neutral-300 border-neutral-700 font-mono' },
+  SILVER: { classes: 'bg-neutral-800 text-neutral-200 border-neutral-600 font-mono' },
+  GOLD: { classes: 'bg-white text-black border-white font-bold font-mono' },
 };
 
-const badgeColors = {
-  success: 'bg-df-success-bg text-df-success border border-green-800',
-  warning: 'bg-df-warning-bg text-df-warning border border-yellow-800',
-  danger: 'bg-df-danger-bg text-df-danger border border-red-800',
-  info: 'bg-df-info-bg text-df-info border border-blue-800',
-  neutral: 'bg-df-surface text-df-text-muted border border-df-border',
+const badgeVariantMap = {
+  success: 'bg-white text-black border-white font-medium',
+  warning: 'bg-neutral-800 text-neutral-200 border-neutral-600',
+  danger: 'bg-neutral-900 text-neutral-300 border-neutral-700',
+  info: 'bg-neutral-800 text-neutral-200 border-neutral-600',
+  neutral: 'bg-neutral-900 text-neutral-400 border-neutral-800',
 } as const;
 
 export function StatusBadge({
@@ -91,18 +108,15 @@ export function StatusBadge({
   className?: string;
 }) {
   if (status) {
-    const color = statusColors[status] || 'bg-df-border text-df-text-muted border border-df-border';
+    const cfg = statusConfig[status] || { classes: 'bg-secondary text-secondary-foreground' };
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color} ${className}`}>
+      <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-semibold', cfg.classes, className)}>
         {status.replace(/_/g, ' ')}
       </span>
     );
   }
-
   return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border ${badgeColors[variant]} ${className}`}
-    >
+    <span className={cn('inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold', badgeVariantMap[variant], className)}>
       {label}
     </span>
   );
@@ -119,55 +133,34 @@ export function NoticeStrip({
   className?: string;
 }) {
   const variants = {
-    warning: 'bg-df-warning-bg text-df-warning border-yellow-800',
-    info: 'bg-df-info-bg text-df-info border-blue-800',
-    danger: 'bg-df-danger-bg text-df-danger border-red-800',
+    warning: 'bg-neutral-900 text-neutral-200 border-neutral-700',
+    info: 'bg-neutral-900 text-neutral-200 border-neutral-700',
+    danger: 'bg-neutral-950 text-neutral-300 border-neutral-700',
   };
   return (
-    <div className={`px-3 py-2 text-sm border rounded ${variants[variant]} ${className}`}>
+    <div className={cn('px-4 py-3 text-sm border rounded-lg', variants[variant], className)}>
       {children}
     </div>
   );
 }
 
-// ── Buttons ──
-
-const btnBase =
-  'inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded transition-colors duration-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none';
+// ── Buttons (legacy wrappers using shadcn tokens) ──
+const btnBase = 'inline-flex items-center justify-center font-medium rounded-md text-sm transition-colors disabled:pointer-events-none disabled:opacity-50';
 
 export function PrimaryButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button className={`${btnBase} bg-df-nav hover:bg-df-nav-hover text-white ${className}`} {...props}>
-      {children}
-    </button>
-  );
+  return <button className={cn(btnBase, 'h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-neutral-200 font-semibold', className)} {...props}>{children}</button>;
 }
 
 export function DangerButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button className={`${btnBase} bg-df-danger hover:bg-red-700 text-white ${className}`} {...props}>
-      {children}
-    </button>
-  );
+  return <button className={cn(btnBase, 'h-9 px-4 py-2 bg-neutral-900 text-neutral-200 border border-neutral-700 shadow hover:bg-neutral-800 hover:text-white', className)} {...props}>{children}</button>;
 }
 
 export function SecondaryButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      className={`${btnBase} bg-df-surface hover:bg-df-border text-df-text border border-df-border ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
+  return <button className={cn(btnBase, 'h-9 px-4 py-2 bg-secondary text-secondary-foreground border border-border shadow-sm hover:bg-neutral-800 hover:text-white', className)} {...props}>{children}</button>;
 }
 
 export function SuccessButton({ children, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button className={`${btnBase} bg-df-success hover:bg-green-700 text-white ${className}`} {...props}>
-      {children}
-    </button>
-  );
+  return <button className={cn(btnBase, 'h-9 px-4 py-2 bg-white text-black font-semibold shadow hover:bg-neutral-200', className)} {...props}>{children}</button>;
 }
 
 export function Button({
@@ -181,75 +174,65 @@ export function Button({
   size?: 'sm' | 'md' | 'lg';
 }) {
   const variantStyles = {
-    primary: 'bg-df-nav text-white hover:bg-df-nav-hover border-transparent',
-    secondary: 'bg-df-surface text-df-text hover:bg-df-border border-df-border',
-    danger: 'bg-df-danger text-white hover:bg-red-700 border-transparent',
-    ghost: 'bg-transparent text-df-text-muted hover:text-df-text hover:bg-df-surface border-transparent',
+    primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-input',
+    danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    ghost: 'hover:bg-accent hover:text-accent-foreground',
   };
-
-  const sizeStyles = {
-    sm: 'px-2.5 py-1 text-xs',
-    md: 'px-3.5 py-2 text-sm',
-    lg: 'px-4 py-2.5 text-base',
-  };
+  const sizeStyles = { sm: 'h-8 px-3 text-xs', md: 'h-9 px-4 text-sm', lg: 'h-10 px-6 text-base' };
 
   return (
-    <button
-      className={`inline-flex items-center justify-center font-medium rounded border transition-colors duration-100 disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
-      {...props}
-    >
+    <button className={cn(btnBase, 'border shadow-sm', variantStyles[variant], sizeStyles[size], className)} {...props}>
       {children}
     </button>
   );
 }
 
-// ── Input ──
+// ── Input (legacy with label support) ──
 export function Input({
   label,
   error,
   className = '',
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  label?: string;
-  error?: string;
-}) {
+}: React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string }) {
   return (
     <div className="w-full">
-      {label && <label className="block text-xs font-medium text-df-text-muted mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-foreground mb-1.5">{label}</label>}
       <input
-        className={`w-full px-3 py-1.5 bg-df-surface border border-df-border rounded text-xs text-df-text placeholder-df-text-dim focus:outline-none focus:border-df-nav transition-colors ${
-          error ? 'border-df-danger' : ''
-        } ${className}`}
+        className={cn(
+          'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          error ? 'border-destructive' : '',
+          className
+        )}
         {...props}
       />
-      {error && <p className="text-xs text-df-danger mt-1">{error}</p>}
+      {error && <p className="text-xs text-destructive mt-1.5">{error}</p>}
     </div>
   );
 }
 
-// ── Select ──
+// ── Select (legacy with label) ──
 export function Select({
   label,
   children,
   error,
   className = '',
   ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & {
-  label?: string;
-  error?: string;
-}) {
+}: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }) {
   return (
     <div className="w-full">
-      {label && <label className="block text-xs font-medium text-df-text-muted mb-1">{label}</label>}
+      {label && <label className="block text-sm font-medium text-foreground mb-1.5">{label}</label>}
       <select
-        className={`w-full px-3 py-1.5 bg-df-surface border border-df-border rounded text-xs text-df-text focus:outline-none focus:border-df-nav transition-colors ${
-          error ? 'border-df-danger' : ''
-        } ${className}`}
+        className={cn(
+          'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          error ? 'border-destructive' : '',
+          className
+        )}
         {...props}
       >
         {children}
       </select>
-      {error && <p className="text-xs text-df-danger mt-1">{error}</p>}
+      {error && <p className="text-xs text-destructive mt-1.5">{error}</p>}
     </div>
   );
 }
@@ -257,14 +240,14 @@ export function Select({
 // ── Spinner ──
 export function Spinner() {
   return (
-    <div className="flex items-center justify-center p-8">
-      <div className="w-6 h-6 border-2 border-df-border border-t-df-nav rounded-full animate-spin" />
+    <div className="flex flex-col items-center justify-center p-12 gap-3">
+      <div className="w-8 h-8 border-2 border-border border-t-primary rounded-full animate-spin" />
+      <p className="text-xs text-muted-foreground">Loading...</p>
     </div>
   );
 }
 
 // ── Formatters ──
-
 export function formatCents(cents?: number | null, currency = 'USD'): string {
   if (cents == null || isNaN(cents)) return '$0.00';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
@@ -275,11 +258,11 @@ export function formatBps(bps?: number | null): string {
   return `${(bps / 100).toFixed(1)}%`;
 }
 
-// ── Additional UI Helpers ──
+// ── Card & Badge (legacy compat) ──
 export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-df-surface border border-df-border rounded-md p-4 ${className}`}>{children}</div>;
+  return <div className={cn('rounded-xl border bg-card text-card-foreground shadow p-6', className)}>{children}</div>;
 }
 
 export function Badge({ children, variant = 'neutral', className = '' }: { children: React.ReactNode; variant?: 'success' | 'warning' | 'danger' | 'info' | 'neutral'; className?: string }) {
-  return <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border ${badgeColors[variant]} ${className}`}>{children}</span>;
+  return <span className={cn('inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold', badgeVariantMap[variant], className)}>{children}</span>;
 }

@@ -49,7 +49,7 @@ export default function InvoiceDetailPage() {
             </div>
             <div>
               <span className="text-df-text-muted">Paid</span>
-              <div className="mt-1 font-semibold text-emerald-400">{formatCurrency(totalPaid)}</div>
+              <div className="mt-1 font-semibold text-df-text">{formatCurrency(totalPaid)}</div>
             </div>
             <div>
               <span className="text-df-text-muted">Due Date</span>

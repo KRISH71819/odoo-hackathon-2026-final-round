@@ -1,5 +1,4 @@
-// ── DealFlow360 – Navigation Bar ──
-// Top navigation with role-based tab visibility, matching the mockup.
+// ── DealFlow360 – Premium Navigation Bar ──
 
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -9,7 +8,7 @@ import { UserRole } from '@dealflow360/contracts';
 interface NavItem {
   label: string;
   path: string;
-  roles: UserRole[]; // Which roles can see this tab
+  roles: UserRole[];
 }
 
 const ALL_INTERNAL: UserRole[] = [UserRole.ADMIN, UserRole.SALES_REP, UserRole.SALES_MANAGER, UserRole.FINANCE_OPS];
@@ -41,15 +40,28 @@ export function Navbar() {
     navigate('/login');
   };
 
+  // Generate user initials
+  const initials = user.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <header className="bg-df-surface border-b border-df-border sticky top-0 z-40">
-      <div className="flex items-center justify-between px-4 h-12">
+    <header className="glass border-b border-white/[0.06] sticky top-0 z-40 animate-slide-down">
+      <div className="flex items-center justify-between px-4 h-14">
         {/* Logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-df-nav font-bold text-base tracking-tight">DealFlow360</span>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <span className="text-gradient font-bold text-sm tracking-tight hidden sm:block">DealFlow360</span>
         </div>
 
-        {/* Navigation tabs - horizontally scrollable on mobile */}
+        {/* Navigation tabs */}
         <nav className="flex-1 overflow-x-auto mx-4 scrollbar-hide">
           <div className="flex items-center gap-0.5 min-w-max">
             {visibleItems.map((item) => (
@@ -58,10 +70,10 @@ export function Navbar() {
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) =>
-                  `px-3 py-2 text-xs font-medium rounded transition-colors duration-100 whitespace-nowrap ${
+                  `nav-indicator px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                     isActive
-                      ? 'bg-df-nav text-white'
-                      : 'text-df-text-muted hover:text-df-text hover:bg-df-border'
+                      ? 'active bg-white/[0.08] text-white'
+                      : 'text-df-text-muted hover:text-white hover:bg-white/[0.04]'
                   }`
                 }
               >
@@ -73,13 +85,19 @@ export function Navbar() {
 
         {/* User info + logout */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-medium text-df-text">{user.name}</p>
-            <p className="text-[10px] text-df-text-dim">{user.role.replace('_', ' ')}</p>
+          <div className="flex items-center gap-2.5">
+            {/* Avatar */}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-indigo-500/20">
+              {initials}
+            </div>
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-semibold text-white leading-none">{user.name}</p>
+              <p className="text-[10px] text-df-text-dim mt-0.5">{user.role.replace(/_/g, ' ')}</p>
+            </div>
           </div>
           <button
             onClick={handleLogout}
-            className="px-2.5 py-1 text-xs font-medium text-df-text-muted hover:text-df-danger border border-df-border rounded transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-df-text-muted hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.2] rounded-lg transition-all duration-200"
           >
             Logout
           </button>

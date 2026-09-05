@@ -62,13 +62,69 @@ authRoutes.get(
   requireRole('ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const { prisma } = await import('../../shared/prisma.js');
-      const customers = await prisma.user.findMany({
-        where: { role: 'CUSTOMER' },
-        select: { id: true, name: true, email: true, tier: true, createdAt: true },
-        orderBy: { name: 'asc' },
-      });
+      const customers = await authService.getCustomers();
       sendSuccess(res, customers);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/auth/customers/:id
+authRoutes.get(
+  '/customers/:id',
+  authMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const customer = await authService.getCustomerById(req.params.id as string);
+      sendSuccess(res, customer);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PATCH /api/auth/customers/:id/tier
+authRoutes.patch(
+  '/customers/:id/tier',
+  authMiddleware,
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { tier } = req.body;
+      const updated = await authService.updateCustomerTier(req.params.id as string, tier);
+      sendSuccess(res, updated);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PUT /api/auth/customers/:id/tier
+authRoutes.put(
+  '/customers/:id/tier',
+  authMiddleware,
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { tier } = req.body;
+      const updated = await authService.updateCustomerTier(req.params.id as string, tier);
+      sendSuccess(res, updated);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/auth/customers
+authRoutes.post(
+  '/customers',
+  authMiddleware,
+  requireRole('ADMIN', 'SALES_MANAGER', 'SALES_REP'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const customer = await authService.createCustomer(req.body);
+      sendCreated(res, customer);
     } catch (err) {
       next(err);
     }

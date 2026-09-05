@@ -23,19 +23,19 @@ export default function DealHealthPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <Panel>
           <div className="text-center">
-            <div className="text-2xl font-bold text-amber-400">{stalledDeals?.length ?? 0}</div>
+            <div className="text-2xl font-bold text-foreground">{stalledDeals?.length ?? 0}</div>
             <div className="text-xs text-df-text-muted mt-1">Stalled Deals</div>
           </div>
         </Panel>
         <Panel>
           <div className="text-center">
-            <div className="text-2xl font-bold text-rose-400">{discountAnomalies?.length ?? 0}</div>
+            <div className="text-2xl font-bold text-foreground">{discountAnomalies?.length ?? 0}</div>
             <div className="text-xs text-df-text-muted mt-1">Discount Anomalies</div>
           </div>
         </Panel>
         <Panel>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-400">{deliverySlippage?.length ?? 0}</div>
+            <div className="text-2xl font-bold text-foreground">{deliverySlippage?.length ?? 0}</div>
             <div className="text-xs text-df-text-muted mt-1">Delivery Slippage</div>
           </div>
         </Panel>
@@ -109,9 +109,9 @@ export default function DealHealthPage() {
                 </div>
                 <div className="text-xs mt-1">
                   <span className="text-df-text-muted">Quote avg: </span>
-                  <span className="text-rose-400">{(a.quoteAvgDiscountBps / 100).toFixed(1)}%</span>
+                  <span className="font-semibold text-foreground">{(a.quoteAvgDiscountBps / 100).toFixed(1)}%</span>
                   <span className="text-df-text-muted ml-2">Rep avg: </span>
-                  <span className="text-emerald-400">{(a.repAvgDiscountBps / 100).toFixed(1)}%</span>
+                  <span className="font-semibold text-muted-foreground">{(a.repAvgDiscountBps / 100).toFixed(1)}%</span>
                 </div>
                 <PrimaryButton
                   className="mt-2"

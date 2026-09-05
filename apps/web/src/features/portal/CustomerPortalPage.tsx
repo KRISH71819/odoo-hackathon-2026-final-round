@@ -166,7 +166,7 @@ export default function CustomerPortalPage() {
                   <span className="font-mono">{formatCurrency(quote.subtotal)}</span>
                 </div>
                 {quote.orderDiscount > 0 && (
-                  <div className="flex justify-between text-amber-400">
+                  <div className="flex justify-between text-muted-foreground">
                     <span>Order discount ({quote.orderDiscount.toFixed(1)}%)</span>
                     <span className="font-mono">−{formatCurrency(quote.totalDiscount)}</span>
                   </div>
@@ -200,7 +200,7 @@ export default function CustomerPortalPage() {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-medium text-df-text">{c.user?.name ?? 'Unknown'}</span>
                         {c.isChangeRequest && (
-                          <span className="text-amber-400 border border-amber-800 rounded px-1 text-xs">
+                          <span className="text-neutral-200 border border-neutral-700 bg-neutral-900 rounded px-1.5 py-0.5 text-xs">
                             Change Request
                           </span>
                         )}
@@ -306,7 +306,7 @@ export default function CustomerPortalPage() {
               <button
                 disabled={confirmQuote.isPending}
                 onClick={handleConfirm}
-                className="shrink-0 px-4 py-2 text-xs font-medium bg-emerald-700 hover:bg-emerald-600 text-white rounded disabled:opacity-50 transition-colors"
+                className="shrink-0 px-4 py-2 text-xs font-semibold bg-white text-black hover:bg-neutral-200 rounded disabled:opacity-50 transition-colors shadow"
               >
                 {confirmQuote.isPending ? 'Confirming…' : 'Confirm Order'}
               </button>
