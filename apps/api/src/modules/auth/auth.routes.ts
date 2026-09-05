@@ -80,7 +80,7 @@ authRoutes.get(
       const { prisma } = await import('../../shared/prisma.js');
       const customers = await prisma.user.findMany({
         where: { role: 'CUSTOMER' },
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, tier: true, createdAt: true },
         orderBy: { name: 'asc' },
       });
       sendSuccess(res, customers);

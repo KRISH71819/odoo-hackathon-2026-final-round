@@ -49,7 +49,7 @@ export default function ApprovalDetailPage() {
         </Panel>
         <Panel>
           <p className="text-xs text-charcoal-400">Grand Total</p>
-          <p className="text-lg font-mono font-semibold">{formatCents(quote.grandTotal)}</p>
+          <p className="text-lg font-mono font-semibold">{formatCents(quote.total ?? quote.grandTotal)}</p>
         </Panel>
         <Panel>
           <p className="text-xs text-charcoal-400">Margin</p>

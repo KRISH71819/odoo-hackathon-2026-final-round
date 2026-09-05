@@ -265,11 +265,13 @@ export function Spinner() {
 
 // ── Formatters ──
 
-export function formatCents(cents: number, currency = 'USD'): string {
+export function formatCents(cents?: number | null, currency = 'USD'): string {
+  if (cents == null || isNaN(cents)) return '$0.00';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
 }
 
-export function formatBps(bps: number): string {
+export function formatBps(bps?: number | null): string {
+  if (bps == null || isNaN(bps)) return '0.0%';
   return `${(bps / 100).toFixed(1)}%`;
 }
 

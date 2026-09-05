@@ -46,7 +46,7 @@ export default function ApprovalListPage() {
                         <span className="text-sm">{a.role.replace('_', ' ')}</span>
                       </td>
                       <td><StatusBadge status={a.quotation?.riskLevel || 'NONE'} /></td>
-                      <td className="text-right font-mono">{formatCents(a.quotation?.grandTotal || 0)}</td>
+                      <td className="text-right font-mono">{formatCents(a.quotation?.total ?? a.quotation?.grandTotal ?? 0)}</td>
                       <td className="text-charcoal-400 text-xs">{new Date(a.createdAt).toLocaleDateString()}</td>
                     </tr>
                   ))}

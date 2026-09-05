@@ -6,6 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuotation, useAddLine, useUpdateLine, useRemoveLine, useSubmitQuote, useUpsellSuggestions, useAuditTrail } from './useQuotations';
 import { useProducts } from '../catalog/useCatalog';
 import { PageHeader, StatusBadge, PrimaryButton, SecondaryButton, DangerButton, SuccessButton, Panel, NoticeStrip, Spinner, Input, Select, formatCents, formatBps } from '../../components/ui';
+import { api } from '../../lib/api';
 
 export default function QuotationBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,10 +51,27 @@ export default function QuotationBuilderPage() {
     await submitQuote.mutateAsync(id!);
   };
 
+  const handleOpenPortal = async () => {
+    try {
+      const res = await api.post<any>('/auth/portal-token', {
+        customerId: quote.customerId,
+        quotationId: quote.id,
+        expiresInHours: 72,
+      });
+      const token = res.data?.token;
+      if (token) {
+        window.open(`/portal/${token}`, '_blank');
+      }
+    } catch (e: any) {
+      alert('Could not generate portal link: ' + (e?.message || 'Error'));
+    }
+  };
+
   return (
     <div>
       <PageHeader title={quote.title}>
         <StatusBadge status={quote.status} className="text-sm px-3 py-1" />
+        <SecondaryButton onClick={handleOpenPortal}>🔗 Customer Portal</SecondaryButton>
         <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
       </PageHeader>
 
@@ -110,8 +128,8 @@ export default function QuotationBuilderPage() {
                       <td><StatusBadge status={line.productCategory} /></td>
                       <td className="text-right">{line.quantity}</td>
                       <td className="text-right font-mono">{formatCents(line.unitPrice)}</td>
-                      <td className="text-right">{formatBps(line.lineDiscountBps)}</td>
-                      <td className="text-right font-mono">{formatCents(line.afterDiscount)}</td>
+                      <td className="text-right">{formatBps(line.discountBps ?? line.lineDiscountBps)}</td>
+                      <td className="text-right font-mono">{formatCents(line.afterDiscount ?? (line.subtotal - Math.floor(line.subtotal * ((line.discountBps ?? line.lineDiscountBps ?? 0) / 10000))))}</td>
                       <td className="text-right text-charcoal-400">{formatCents(line.taxAmount)}</td>
                       <td className="text-right font-mono font-medium">{formatCents(line.total)}</td>
                       <td className={`text-right ${line.marginPercent >= 2000 ? 'text-success' : line.marginPercent >= 1000 ? 'text-warning' : 'text-danger'}`}>
@@ -192,22 +210,22 @@ export default function QuotationBuilderPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-charcoal-400">Tax</span>
-                <span className="font-mono">{formatCents(quote.totalTax)}</span>
+                <span className="font-mono">{formatCents(quote.taxTotal ?? quote.totalTax)}</span>
               </div>
               <div className="border-t border-charcoal-600 my-2" />
               <div className="flex justify-between text-base font-semibold">
                 <span>Total</span>
-                <span className="font-mono">{formatCents(quote.grandTotal)}</span>
+                <span className="font-mono">{formatCents(quote.total ?? quote.grandTotal)}</span>
               </div>
               <div className="border-t border-charcoal-700 my-2" />
               <div className="flex justify-between">
                 <span className="text-charcoal-400">Cost</span>
-                <span className="font-mono text-charcoal-400">{formatCents(quote.totalCost)}</span>
+                <span className="font-mono text-charcoal-400">{formatCents(quote.totalCost ?? quote.lines?.reduce((sum: number, l: any) => sum + (l.costPrice || 0) * (l.quantity || 1), 0))}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-charcoal-400">Margin</span>
-                <span className={`font-mono ${quote.marginPercent >= 2000 ? 'text-success' : quote.marginPercent >= 1000 ? 'text-warning' : 'text-danger'}`}>
-                  {formatCents(quote.totalMargin)} ({formatBps(quote.marginPercent)})
+                <span className={`font-mono ${(quote.marginPercent ?? 0) >= 2000 ? 'text-success' : (quote.marginPercent ?? 0) >= 1000 ? 'text-warning' : 'text-danger'}`}>
+                  {formatCents(quote.totalMargin ?? (((quote.subtotal || 0) - (quote.totalDiscount || 0)) - (quote.lines?.reduce((sum: number, l: any) => sum + (l.costPrice || 0) * (l.quantity || 1), 0) || 0)))} ({formatBps(quote.marginPercent)})
                 </span>
               </div>
 

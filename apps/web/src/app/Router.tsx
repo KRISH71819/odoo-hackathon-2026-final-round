@@ -5,6 +5,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './Layout.js';
 import { LoginPage } from '../features/auth/LoginPage.js';
 import { DashboardPage } from '../features/dashboard/DashboardPage.js';
+import CustomersPage from '../features/customer/CustomersPage.js';
 import ProductListPage from '../features/catalog/ProductListPage.js';
 import QuotationListPage from '../features/quotation/QuotationListPage.js';
 import QuotationBuilderPage from '../features/quotation/QuotationBuilderPage.js';
@@ -38,6 +39,7 @@ export function AppRouter() {
       {/* Internal protected routes */}
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
+        <Route path="customers" element={<CustomersPage />} />
 
         {/* Phase 2 */}
         <Route path="products" element={<ProductListPage />} />

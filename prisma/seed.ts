@@ -3,7 +3,7 @@
 // Run: npx tsx prisma/seed.ts
 
 import { PrismaClient } from '@prisma/client';
-import { hash } from 'bcryptjs';
+import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
