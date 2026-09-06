@@ -176,7 +176,7 @@ export default function QuotationListPage() {
               <tbody>
                 {quotations.map((q: any) => (
                   <tr key={q.id} className="cursor-pointer hover:bg-charcoal-800/60 transition-colors" onClick={() => navigate(`/quotations/${q.id}`)}>
-                    <td className="font-mono text-accent font-semibold">{q.number || '—'}</td>
+                    <td className="font-mono text-white font-semibold">{q.number || '—'}</td>
                     <td className="font-medium">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span>{q.title}</span>
@@ -283,7 +283,7 @@ export default function QuotationListPage() {
                       className="bg-charcoal-800 border border-charcoal-700/80 hover:border-accent rounded p-3 cursor-pointer transition-all hover:translate-y-[-1px] shadow-sm"
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-mono text-accent font-semibold">{q.number}</span>
+                        <span className="font-mono text-white font-semibold">{q.number}</span>
                         <StatusBadge status={q.status} />
                       </div>
                       <div className="font-medium text-xs text-charcoal-100 truncate mb-1" title={q.title}>
