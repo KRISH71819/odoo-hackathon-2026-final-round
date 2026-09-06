@@ -1,6 +1,6 @@
 // ── DealFlow360 – shadcn Dashboard ──
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -72,16 +72,32 @@ export function DashboardPage() {
   const canCreateQuote = user?.role === UserRole.SALES_REP || user?.role === UserRole.ADMIN;
   const customers = customersData?.data || [];
 
-  const handleNewQuote = async () => {
+  // New quotation modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('New Enterprise Deal');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+
+  const handleNewQuote = () => {
     if (customers.length === 0) {
       navigate('/customers');
       return;
     }
+    // Always show the customer selection modal — never default to customers[0]
+    setSelectedCustomerId('');
+    setNewTitle('New Enterprise Deal');
+    setIsModalOpen(true);
+  };
+
+  const handleCreateQuote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const customerId = selectedCustomerId || customers[0]?.id;
+    if (!customerId) return;
     try {
       const res = await createQuotation.mutateAsync({
-        customerId: customers[0].id,
-        title: 'New Enterprise Deal',
+        customerId,
+        title: newTitle.trim() || 'New Quotation',
       });
+      setIsModalOpen(false);
       navigate(`/quotations/${res.data.id}`);
     } catch (err: any) {
       alert(err.message || 'Failed to create quotation');
@@ -99,6 +115,7 @@ export function DashboardPage() {
   ];
 
   return (
+    <>
     <div className="animate-fade-in space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -279,5 +296,50 @@ export function DashboardPage() {
         </>
       )}
     </div>
+
+      {/* New Quotation Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background border border-border rounded-lg p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-base font-semibold mb-4">Create New Quotation</h3>
+            <form onSubmit={handleCreateQuote} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Customer</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={selectedCustomerId || customers[0]?.id || ''}
+                  onChange={(e) => setSelectedCustomerId(e.target.value)}
+                >
+                  {customers.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.tier || 'BRONZE'} Tier) — {c.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Quotation Title</label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Acme Corp - Q3 Hardware & Cloud Upgrade"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createQuotation.isPending}>
+                  {createQuotation.isPending ? 'Creating...' : 'Create & Open'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

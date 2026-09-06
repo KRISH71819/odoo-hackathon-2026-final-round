@@ -75,7 +75,8 @@ export default function QuotationListPage() {
 
   const handleCreateQuote = async (e: React.FormEvent) => {
     e.preventDefault();
-    const customerId = selectedCustomerId || customers[0]?.id;
+    // selectedCustomerId is set by the select; fall back to first only if list has exactly one customer
+    const customerId = selectedCustomerId || (customers.length === 1 ? customers[0]?.id : '');
     if (!customerId) return;
 
     const res = await createQuotation.mutateAsync({
@@ -84,6 +85,13 @@ export default function QuotationListPage() {
     });
     setIsModalOpen(false);
     navigate(`/quotations/${res.data.id}`);
+  };
+
+  const openNewQuoteModal = () => {
+    // Always reset selection so user must choose
+    setSelectedCustomerId('');
+    setNewTitle('New Enterprise Quotation');
+    setIsModalOpen(true);
   };
 
   return (
@@ -116,7 +124,7 @@ export default function QuotationListPage() {
               </button>
             </div>
             {isSalesRep && (
-              <PrimaryButton onClick={() => setIsModalOpen(true)}>
+              <PrimaryButton onClick={openNewQuoteModal}>
                 + New Quotation
               </PrimaryButton>
             )}
