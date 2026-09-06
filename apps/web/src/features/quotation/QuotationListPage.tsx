@@ -145,7 +145,7 @@ export default function QuotationListPage() {
           <div className="w-full sm:w-72">
             <Input
               type="search"
-              placeholder="Search quotes by #, title..."
+              placeholder="Search by quote #, title, customer, sales rep, status..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               className="text-xs"

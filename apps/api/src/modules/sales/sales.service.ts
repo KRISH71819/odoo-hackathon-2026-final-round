@@ -85,10 +85,44 @@ export async function getQuotations(filter: QuotationFilter, page: number, limit
   if (filter.customerId) where.customerId = filter.customerId;
   if (filter.salesRepId) where.salesRepId = filter.salesRepId;
   if (filter.search) {
-    where.OR = [
-      { title: { contains: filter.search } },
-      { number: { contains: filter.search } },
+    const search = filter.search.trim();
+    const normalizedStatus = search
+      .toUpperCase()
+      .replace(/[\s-]+/g, '_');
+
+    const quotationStatuses = [
+      'DRAFT',
+      'PENDING_MANAGER',
+      'PENDING_FINANCE',
+      'APPROVED',
+      'FULFILLMENT_READY',
+      'SENT_TO_CUSTOMER',
+      'UNDER_NEGOTIATION',
+      'CONFIRMED',
+      'BILLED',
+      'PAID',
+      'REJECTED',
+      'REVISION',
     ];
+
+    const matchedStatuses = quotationStatuses.filter((status) =>
+      status.includes(normalizedStatus),
+    );
+
+    const searchConditions: Record<string, unknown>[] = [
+      { title: { contains: search } },
+      { number: { contains: search } },
+      { customer: { name: { contains: search } } },
+      { salesRep: { name: { contains: search } } },
+    ];
+
+    if (matchedStatuses.length > 0) {
+      searchConditions.push({
+        status: { in: matchedStatuses },
+      });
+    }
+
+    where.OR = searchConditions;
   }
 
   const [data, total] = await Promise.all([

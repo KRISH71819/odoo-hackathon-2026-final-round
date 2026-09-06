@@ -96,18 +96,6 @@ export function AppLayout() {
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/quotations')}
-              className="hidden sm:flex items-center gap-2 h-8 px-3 rounded-md border border-input bg-muted/40 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span>Search deals, SKU, customers...</span>
-              <kbd className="pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </button>
-
             <Button
               variant="ghost"
               size="icon"
