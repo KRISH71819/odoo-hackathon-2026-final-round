@@ -322,7 +322,11 @@ export async function removeQuotationLine(quotationId: string, lineId: string, u
 
 export async function submitQuote(quotationId: string, userId: string) {
   const quote = await getQuotationById(quotationId);
-  assertEditable(quote.status);
+  // Allow submission from: DRAFT, REVISION, or UNDER_NEGOTIATION (renegotiation re-submit)
+  const submittableStatuses = [QuotationStatus.DRAFT, QuotationStatus.REVISION, QuotationStatus.UNDER_NEGOTIATION];
+  if (!submittableStatuses.includes(quote.status as QuotationStatus)) {
+    throw new AppError(409, 'NOT_SUBMITTABLE', `Quotation in status ${quote.status} cannot be submitted.`);
+  }
 
   if (quote.lines.length === 0) {
     throw new AppError(400, 'EMPTY_QUOTE', 'Cannot submit a quotation with no lines');
@@ -536,7 +540,11 @@ export async function calculateRiskForQuote(quote: Awaited<ReturnType<typeof get
 }
 
 function assertEditable(status: string) {
-  if (status !== QuotationStatus.DRAFT && status !== QuotationStatus.REVISION) {
+  if (
+    status !== QuotationStatus.DRAFT &&
+    status !== QuotationStatus.REVISION &&
+    status !== QuotationStatus.UNDER_NEGOTIATION
+  ) {
     throw new AppError(409, 'NOT_EDITABLE', `Quotation in status ${status} cannot be edited. Return for revision first.`);
   }
 }

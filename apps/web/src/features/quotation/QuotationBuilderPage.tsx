@@ -203,7 +203,7 @@ export default function QuotationBuilderPage() {
   const products = productsData?.data || [];
   const suggestions = (suggestionsData?.data || []).filter((s: any) => !dismissedSuggestions.includes(s.id));
   const auditTrail = auditData?.data || [];
-  const isEditable = quote.status === 'DRAFT' || quote.status === 'REVISION';
+  const isEditable = quote.status === 'DRAFT' || quote.status === 'REVISION' || quote.status === 'UNDER_NEGOTIATION';
 
   // Parse customer requirements
   const isCustomerRequest = Boolean(quote.notes?.includes('[CUSTOMER QUOTE REQUEST]') || quote.title?.startsWith('Quote Request:'));
@@ -262,7 +262,10 @@ export default function QuotationBuilderPage() {
 
   const handleSubmit = async () => {
     const isRevision = quote.status === 'REVISION';
-    const msg = isRevision
+    const isNegotiation = quote.status === 'UNDER_NEGOTIATION';
+    const msg = isNegotiation
+      ? 'Re-submit this updated quotation for approval? The revised terms will go back through the approval chain.'
+      : isRevision
       ? 'Re-submit this quotation for approval? Approvers will review the revised item discounts and terms.'
       : 'Submit this quotation for approval? Lines cannot be edited while pending.';
     if (!confirm(msg)) return;
@@ -425,6 +428,11 @@ export default function QuotationBuilderPage() {
           <SecondaryButton onClick={() => navigate('/invoices')}>
             🧾 Invoices
           </SecondaryButton>
+        )}
+        {quote.status === 'UNDER_NEGOTIATION' && isSalesRep && (
+          <PrimaryButton onClick={handleSubmit} disabled={submitQuote.isPending}>
+            {submitQuote.isPending ? 'Submitting…' : '🔄 Re-submit for Approval'}
+          </PrimaryButton>
         )}
         <SecondaryButton onClick={() => navigate('/quotations')}>← Back</SecondaryButton>
       </PageHeader>
