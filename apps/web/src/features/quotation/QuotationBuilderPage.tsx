@@ -501,6 +501,11 @@ export default function QuotationBuilderPage() {
           ↩ RETURNED FOR REVISION: The reviewer requested adjustments. You can now modify the line items and re-submit for approval.
         </NoticeStrip>
       )}
+      {quote.status === 'UNDER_NEGOTIATION' && isSalesRep && (
+        <NoticeStrip variant="info" className="mb-4">
+          🔄 RENEGOTIATION MODE: The customer is negotiating this quotation. You can edit line quantities and discounts below, then click <strong>Re-submit for Approval</strong> to send revised terms back through the approval chain.
+        </NoticeStrip>
+      )}
 
       {/* Governance Review Action Box (Visible to authorized approvers for current stage) */}
       {canApprove && (
@@ -1097,13 +1102,15 @@ export default function QuotationBuilderPage() {
                     <SuccessButton className="w-full" onClick={handleSubmit} disabled={submitQuote.isPending}>
                       {submitQuote.isPending
                         ? 'Submitting…'
-                        : quote.status === 'REVISION'
+                        : quote.status === 'REVISION' || quote.status === 'UNDER_NEGOTIATION'
                         ? '🔄 Re-submit for Approval'
                         : 'Submit for Approval'}
                     </SuccessButton>
-                    {quote.status === 'REVISION' && (
+                    {(quote.status === 'REVISION' || quote.status === 'UNDER_NEGOTIATION') && (
                       <p className="text-[11px] text-charcoal-400 text-center mt-2">
-                        Re-submitting recalculates discount risk & updates the approval chain.
+                        {quote.status === 'UNDER_NEGOTIATION'
+                          ? 'Re-submitting sends revised negotiation terms back through the full approval chain.'
+                          : 'Re-submitting recalculates discount risk & updates the approval chain.'}
                       </p>
                     )}
                   </Panel>
